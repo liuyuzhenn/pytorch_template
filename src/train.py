@@ -44,7 +44,7 @@ def train(configs):
     except KeyboardInterrupt:
         model.logger.info(
             'Got Keyboard Interuption, saving model and closing.')
-        model.save(train_args['log_dir'])
+        model.save(train_args['log_dir'],'interrupt_ckpt.pt')
     
 
 if __name__ == '__main__':

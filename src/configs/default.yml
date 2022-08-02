@@ -12,7 +12,6 @@ loss_args:
 train_args:
   device: 'cpu'
   data_parallel: false
-  # interval_scale: 1.06
   num_epochs: 16
   lr: 0.001
   wd: 0.0

@@ -63,7 +63,7 @@ class BaseModel(metaclass=ABCMeta):
         #     dict: A dict containing data that will be saved.
         # """
 
-    def _compute_metrics(self, outputs, inputs):
+    def _metrics(self, outputs, inputs):
         """Compute metrics that is saved in tensorboard.
 
         Args:
@@ -90,12 +90,34 @@ class BaseModel(metaclass=ABCMeta):
 
     def train(self, train_args, loss_term):
         self._init_weights()
+        # device
         self.device = train_args['device']
         if train_args['data_parallel']:
             self.net = nn.DataParallel(self.net)
-        resume_training = train_args.get('resume_training','')
+        self.net.to(self.device)
+
+        # train/val data
         train_data = self.dataset.get_data_loader('train')
-        val_data = self.dataset.get_data_loader('val')
+        val_data = self.dataset.get_data_loader('test')
+
+        # set optimzer/scheduler 
+        wd = train_args['wd']
+        lr = train_args['lr']
+        self.optimizer = optim.Adam(self.net.parameters(),lr=lr,weight_decay=wd)
+        if 'lrepochs' in train_args.keys():
+            do_schedule = True
+            milestones = [int(epoch_idx) for epoch_idx in train_args['lrepochs'].split(':')[0].split(',')]
+            lr_gamma = float(train_args['lrepochs'].split(':')[1])
+            lr = train_args['lr']
+            self.lr_scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer, milestones,
+                                                        gamma=lr_gamma,
+                                                        last_epoch=-1)
+        else:
+            do_schedule = False
+            self.lr_scheduler = None
+
+        # continue from the checkpoint
+        resume_training = train_args.get('resume_training','')
         if resume_training == '':
             self.logger.info('Initializing new weights...')
             self.epoch = 0
@@ -103,37 +125,55 @@ class BaseModel(metaclass=ABCMeta):
             self.logger.info(
                 'Loading weights from {}...'.format(resume_training))
             self.load(resume_training)
-        lr = train_args['lr']
-        wd = train_args['wd']
-        optimizer = optim.Adam(self.net.parameters(),lr=lr,weight_decay=wd)
-        writer = SummaryWriter(train_args['log_dir'])
+        
+        if train_args.get('enable_tensorboard',True):
+            writer = SummaryWriter(train_args['log_dir'])
+        else:
+            writer = None
+
         while self.epoch < train_args['num_epochs']:
             # Train
             self.net.train()
             for i, data in enumerate(train_data):
                 t1 = time.time()
                 data = to_device(data,self.device)
-                optimizer.zero_grad()
+                self.optimizer.zero_grad()
                 model_outputs = self._forward(data, mode='train')
-                loss, items = loss_term.compute(model_outputs, data)
+                # loss, items = loss_term.compute(model_outputs, data)
+                loss = loss_term.compute(model_outputs, data)
+                if isinstance(loss,tuple):
+                    loss, items = loss
+                else:
+                    items = None
                 loss.backward()
-                optimizer.step()
+                self.optimizer.step()
                 t2 = time.time()
+
                 global_step = len(train_data)*self.epoch+i
 
                 self.logger.info('[Train] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s'
                                  .format(self.epoch+1, train_args['num_epochs'], i+1, len(train_data), float(loss), t2-t1))
+
+                if items is not None:
+                    items.update({'loss':float(loss)})
+                else:
+                    items = {'loss':float(loss)}
+
+                metrics = self._metrics(model_outputs, data)
+                if metrics is not None:
+                    items.update(metrics)
+                # save in average meter
+                avg_meter.update(tensor2float(items))
+
                 if global_step % train_args['summary_freq'] == 0:
-                    metrics = self._compute_metrics(model_outputs, data)
                     images = self._get_images(model_outputs, data)
-                    if metrics is not None:
-                        save_scalars(writer, 'train', metrics, global_step)
-                    if items is not None:
-                        save_scalars(writer, 'train', items, global_step)
+                    save_scalars(writer, 'train', items, global_step)
                     if images is not None:
                         save_images(writer, 'train', images, global_step)
 
-            self.save(train_args['out_dir'])
+            if writer is not None and avg_meter.count != 0:
+                save_scalars(writer, 'train_avg', avg_meter.mean(), self.epoch)
+            self.save(train_args['log_dir'])
 
             # Validation
             avg_meter = DictAverageMeter()
@@ -143,31 +183,57 @@ class BaseModel(metaclass=ABCMeta):
                     data = to_device(data, self.device)
                     model_outputs = self._forward(data, mode='val')
                     t1 = time.time()
-                    loss, items = loss_term.compute(model_outputs, data, mode='val')
+                    # loss, items = loss_term.compute(model_outputs, data, mode='val')
+                    loss = loss_term.compute(model_outputs, data)
+                    if isinstance(loss,tuple):
+                        loss, items = loss
+                    else:
+                        items = None
                     t2 = time.time()
                     self.logger.info('[Val] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s'
                                      .format(self.epoch+1, train_args['num_epochs'], i+1, len(val_data), float(loss), t2-t1))
+                    global_step = len(val_data)*self.epoch+i
                     if items is not None:
-                        avg_meter.update(items)
-                    metrics = self._compute_metrics(model_outputs, data)
+                        items.update({'loss':float(loss)})
+                    else:
+                        items = {'loss':float(loss)}
+
+                    metrics = self._metrics(model_outputs, data)
                     if metrics is not None:
-                        avg_meter.update(metrics)
-                if avg_meter.count != 0:
+                        items.update(metrics)
+
+                    avg_meter.update(tensor2float(items))
+                    # save_scalars(writer, 'val', items, global_step)
+                    
+                if writer is not None and avg_meter.count != 0:
                     save_scalars(writer, 'val', avg_meter.mean(), self.epoch)
                     self.logger.info('[Val] [Epoch {}/{}] {}'.format(self.epoch,
                                 train_args['num_epochs'], dict_to_str(avg_meter.mean())))
-            self.epoch += 1
 
-    def save(self, out_dir):
+            self.epoch += 1
+            if do_schedule:
+                self.lr_scheduler.step()
+
+    def save(self, out_dir, ckpt_name=None):
         save_path = os.path.join(out_dir, 'ckpt{:0>4}'.format(self.epoch))
-        torch.save({
-            'epoch': self.epoch,
-            'model_state_dict': self.net.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-        }, save_path)
+        if self.lr_scheduler is not None:
+            torch.save({
+                'epoch': self.epoch,
+                'model_state_dict': self.net.state_dict(),
+                'optimizer_state_dict': self.optimizer.state_dict(),
+                'scheduler_state_dict': self.lr_scheduler.state_dict(),
+            }, save_path)
+        else:
+            torch.save({
+                'epoch': self.epoch,
+                'model_state_dict': self.net.state_dict(),
+                'optimizer_state_dict': self.optimizer.state_dict(),
+            }, save_path)
 
     def load(self, checkpoint_path):
         checkpoint = torch.load(checkpoint_path,map_location=self.device)
         self.net.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.epoch = checkpoint['epoch']
+        if 'scheduler_state_dict' in checkpoint.keys():
+            self.lr_scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
