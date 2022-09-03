@@ -219,14 +219,14 @@ class BaseModel(metaclass=ABCMeta):
         if self.lr_scheduler is not None:
             torch.save({
                 'epoch': self.epoch,
-                'model_state_dict': self.net.state_dict(),
+                'model_state_dict': self.net.module.state_dict(),
                 'optimizer_state_dict': self.optimizer.state_dict(),
                 'scheduler_state_dict': self.lr_scheduler.state_dict(),
             }, save_path)
         else:
             torch.save({
                 'epoch': self.epoch,
-                'model_state_dict': self.net.state_dict(),
+                'model_state_dict': self.net.module.state_dict(),
                 'optimizer_state_dict': self.optimizer.state_dict(),
             }, save_path)
 
