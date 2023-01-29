@@ -94,10 +94,11 @@ def save_images(writer, mode, images_dict, global_step):
                 name = '{}/{}_{}'.format(mode, key, idx)
                 writer.add_image(name, preprocess(name, value[idx]), global_step)
 
-def dict_to_str(d,sep='|'):
+def dict_to_str(d, sep='| '):
     out = []
     for k,v in d.items():
-        out.append(' {}: {} '.format(k,v))
+        out.append('{}: {} '.format(k,v))
+    return sep.join(out)
     
 
 class DictAverageMeter(object):
@@ -136,19 +137,3 @@ def compute_metrics_for_each_image(metric_func):
         return torch.stack(results).mean()
 
     return wrapper
-
-
-@compute_metrics_for_each_image
-def threshold_metrics(depth_est, depth_gt, mask, thres):
-    assert isinstance(thres, (int, float))
-    depth_est, depth_gt = depth_est[mask], depth_gt[mask]
-    errors = torch.abs(depth_est - depth_gt)
-    err_mask = errors > thres
-    return torch.mean(err_mask.float())
-
-
-# NOTE: please do not use this to build up training loss
-@compute_metrics_for_each_image
-def abs_depth_err_metrics(depth_est, depth_gt, mask):
-    depth_est, depth_gt = depth_est[mask], depth_gt[mask]
-    return torch.mean((depth_est - depth_gt).abs())

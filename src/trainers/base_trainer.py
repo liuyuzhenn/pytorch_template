@@ -5,24 +5,23 @@ import logging
 import time
 from abc import ABCMeta, abstractmethod
 import os
-from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard.writer import SummaryWriter
 from .utils import *
 
+    
 
-class BaseModel(metaclass=ABCMeta):
+class BaseTrainer(metaclass=ABCMeta):
     """Base model from training/testing and logging
     """
     @abstractmethod
-    def _model(self):
+    def _model(self) -> nn.Module:
         """ Implements the model.
-        Arguments
-        ---
+        Args:
             config: A configuration dictionary.
-        Returns
-        ---
+
+        Returns:
             A torch.nn.Module that implements the model.
         """
-        pass
 
 
     @abstractmethod
@@ -31,44 +30,28 @@ class BaseModel(metaclass=ABCMeta):
         This method is called three times: for training, testing and
         prediction (see the `mode` argument) and can return different tensors
         depending on the mode.
-        Arguments
-        ---
+
+        Args:
             inputs: A dictionary of input features, where the keys are their
                 names (e.g. `"image"`) and the values of type `torch.Tensor`.
             mode: An attribute of the `Mode` class, either `Mode.TRAIN`,
                   `Mode.TEST`
             config: A configuration dictionary.
-        Returns
-        ---
+
+        Returns:
             A dictionary of outputs, where the keys are their names
             (e.g. `"logits"`) and the values are the corresponding Tensor.
         """
-        pass
 
-    # @abstractmethod
-    # def _loss(self):
-    #     """"""
-        # """ Implements the training loss.
-        # This method is called on the outputs of the `_model` method
-        # in training mode.
-        # Arguments
-        # ---
-        #     outputs: A dictionary, as returned by `_model` called with
-        #              `mode=Mode.TRAIN`.
-        #     inputs: A dictionary of input features (same as for `_model`).
-        #     config: A configuration dictionary.
-        # Returns
-        # ---
-        #     loss: A Tensor corresponding to the loss to minimize during training.
-        #     dict: A dict containing data that will be saved.
-        # """
-
-    def _metrics(self, outputs, inputs):
+    def _metrics(self, outputs, inputs) -> dict:
         """Compute metrics that is saved in tensorboard.
 
         Args:
             outputs (dict): returned by `_model`
             inputs (dict): returned by dataset
+
+        Returns:
+            A dict containing different metrics.
         """
 
     def _get_images(self, outputs, inputs):
@@ -77,10 +60,25 @@ class BaseModel(metaclass=ABCMeta):
         Args:
             outputs (dict): returned by `_model`
             inputs (dict): returned by dataset
+
+        Returns:
+            None
         """
 
+    def test(self, test_args):
+        """
+        Test model after training.
+
+        Args:
+            test_args: arguments for testing
+
+        Returns:
+            None
+        """
+        
+
     def _init_weights(self):
-        pass
+        """Initialize model weight at the beggining of training"""
 
     def __init__(self, dataset, configs, logger_name='default'):
         self.logger = logging.getLogger(logger_name)
@@ -105,7 +103,6 @@ class BaseModel(metaclass=ABCMeta):
         lr = train_args['lr']
         self.optimizer = optim.Adam(self.net.parameters(),lr=lr,weight_decay=wd)
         if 'lrepochs' in train_args.keys():
-            do_schedule = True
             milestones = [int(epoch_idx) for epoch_idx in train_args['lrepochs'].split(':')[0].split(',')]
             lr_gamma = float(train_args['lrepochs'].split(':')[1])
             lr = train_args['lr']
@@ -113,7 +110,6 @@ class BaseModel(metaclass=ABCMeta):
                                                         gamma=lr_gamma,
                                                         last_epoch=-1)
         else:
-            do_schedule = False
             self.lr_scheduler = None
 
         # continue from the checkpoint
@@ -133,6 +129,7 @@ class BaseModel(metaclass=ABCMeta):
 
         while self.epoch < train_args['num_epochs']:
             # Train
+            avg_meter = DictAverageMeter()
             self.net.train()
             for i, data in enumerate(train_data):
                 t1 = time.time()
@@ -211,7 +208,7 @@ class BaseModel(metaclass=ABCMeta):
                                 train_args['num_epochs'], dict_to_str(avg_meter.mean())))
 
             self.epoch += 1
-            if do_schedule:
+            if self.lr_scheduler is not None:
                 self.lr_scheduler.step()
 
     def save(self, out_dir, ckpt_name=None):
@@ -235,5 +232,5 @@ class BaseModel(metaclass=ABCMeta):
         self.net.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.epoch = checkpoint['epoch']
-        if 'scheduler_state_dict' in checkpoint.keys():
+        if self.lr_scheduler is not None and 'scheduler_state_dict' in checkpoint.keys():
             self.lr_scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
