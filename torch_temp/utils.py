@@ -2,7 +2,9 @@ import yaml
 import os
 import logging
 from importlib import import_module as get_module
-from torch_temp.models import _name_to_class
+
+def _name_to_class(name):
+    return ''.join(n.capitalize() for n in name.split('_'))
 
 def get_logger(logdir):
     logger = logging.getLogger('torch_temp')
