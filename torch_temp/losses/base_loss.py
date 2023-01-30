@@ -1,7 +1,9 @@
 from abc import ABCMeta, abstractmethod
 
+class NoGradientError(Exception):
+    pass
 
-class BasicLoss(metaclass=ABCMeta):
+class BaseLoss(metaclass=ABCMeta):
     def __init__(self, args):
         self.kwargs = args
 

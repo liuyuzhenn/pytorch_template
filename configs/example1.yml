@@ -1,0 +1,43 @@
+project: "example1" # should match the folder name
+
+seed: 0 # default is 0
+
+dataset_configs:
+  name: "my_dataset"
+  batch_size: 512 # necessary
+  train_size: 10240 # necessary
+
+  noise: 1 # std of gaussian noise
+  val_size: 1024
+  min: -2
+  max: 2
+
+model_configs:
+  name: "f_p_n" # necessary
+  dim_in: 3
+  dim_hidden: 128
+  dim_out: 1
+
+loss_configs:
+  name: "l2_loss" # necessary
+
+optimizer_configs:
+  name: "Adam" # necessary
+  lr: 0.001
+  betas: [0.9, 0.999]
+  weight_decay: 0.0
+
+train_configs:
+  name: 'trainer' # necessary
+  device: "cuda" # necessary
+  log_dir: "experiments/example" # necessary
+  data_parallel: false
+  enable_tensorboard: true
+  num_epochs: 100
+  checkpoint: ""
+  summary_freq: 20
+
+test_configs:
+  device: "cpu" # necessary
+  data_parallel: false # necessary
+  checkpoint: "" # should contain "model_state_dict"
