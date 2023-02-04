@@ -22,6 +22,9 @@ def get_logger(logdir):
 def train(configs):
     # save the configutation in the log directory
     if configs.get('save_configs', True):
+        log_dir = configs['train_configs']['log_dir']
+        if not os.path.isdir(log_dir):
+            os.makedirs(log_dir)
         with open(os.path.join(configs['train_configs']['log_dir'], 'configs.yml'), 'w') as f:
             yaml.dump(configs, f, default_style=False)
 
