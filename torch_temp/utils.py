@@ -50,8 +50,6 @@ def train(configs):
     loss = getattr(loss, _name_to_class(loss_configs['name']))(loss_configs)
     trainer = getattr(trainer, _name_to_class(train_configs['name']))(model, dataset, loss)
 
-    logger = get_logger(train_configs['log_dir'])
-    logger.info('Start to train...')
     try:
         trainer.train(train_configs, optimizer_configs)
     except KeyboardInterrupt:

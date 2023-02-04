@@ -10,6 +10,7 @@ import os
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from torch_temp.losses.base_loss import NoGradientError
+from torch_temp.utils import get_logger
 from .utils import *
 
 
@@ -71,9 +72,9 @@ class BaseTrainer(metaclass=ABCMeta):
         self.model = model
         self.dataset = dataset
         self.loss_term = loss
-        self.logger = logging.getLogger('torch_temp')
 
     def train(self, train_configs, optimizer_configs):
+        self.logger = get_logger(train_configs['log_dir'])
         self._init_weights()
         # device
         self.device = train_configs['device']
