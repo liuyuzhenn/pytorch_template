@@ -55,4 +55,4 @@ def train(configs):
     except KeyboardInterrupt:
         trainer.logger.info(
             'Got Keyboard Interuption, saving model and closing.')
-        trainer.save(train_configs['log_dir'],'interrupt_ckpt.pt')
+        trainer.save(os.path.join(train_configs['log_dir'],'interrupt_ckpt.pt'))

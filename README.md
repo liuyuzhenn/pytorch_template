@@ -45,4 +45,5 @@ Use `python example1/run.py` to run the demo.
 
 ## TO DO ✅
 
+- [ ] Add `test` example
 - [ ] Add more examples.
