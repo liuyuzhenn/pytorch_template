@@ -7,7 +7,7 @@ class Trainer(BaseTrainer):
     def __init__(self, model, dataset, loss):
         super().__init__(model, dataset, loss)
 
-    def _metrics(self, outputs_model, inputs_data) -> dict:
+    def _metrics(self, outputs_model, inputs_data, mode='train') -> dict:
         with torch.no_grad():
             y_pred = outputs_model['y']
             y_gt = inputs_data['y']

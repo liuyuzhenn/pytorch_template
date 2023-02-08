@@ -32,7 +32,7 @@ class BaseTrainer(metaclass=ABCMeta):
     #         (e.g. `"logits"`) and the values are the corresponding Tensor.
     #     """
 
-    def _metrics(self, outputs_model, inputs_data) -> dict:
+    def _metrics(self, outputs_model, inputs_data, mode='train') -> dict:
         """Compute metrics that is saved in tensorboard.
 
         Args:
@@ -43,7 +43,7 @@ class BaseTrainer(metaclass=ABCMeta):
             A dict containing different metrics.
         """
 
-    def _get_images(self, outputs_model, inputs_data):
+    def _get_images(self, outputs_model, inputs_data, mode='train'):
         """Visualizing results
 
         Args:
