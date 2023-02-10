@@ -11,6 +11,7 @@ import os
 from torch.utils.tensorboard.writer import SummaryWriter
 
 from torch_temp.losses.base_loss import NoGradientError
+from torch_temp.utils import get_logger
 from .utils import *
 
 
@@ -18,7 +19,7 @@ class BaseTrainer(metaclass=ABCMeta):
     """Base trainer from training/testing and logging
     """
 
-    def _metrics(self, outputs_model, inputs_data) -> dict:
+    def _metrics(self, outputs_model, inputs_data, mode='train') -> dict:
         """Compute metrics that is saved in tensorboard.
 
         Args:
@@ -29,7 +30,7 @@ class BaseTrainer(metaclass=ABCMeta):
             A dict containing different metrics.
         """
 
-    def _get_images(self, outputs_model, inputs_data):
+    def _get_images(self, outputs_model, inputs_data, mode='train'):
         """Visualizing results
 
         Args:
@@ -98,7 +99,6 @@ class BaseTrainer(metaclass=ABCMeta):
         self.model = model
         self.dataset = dataset
         self.loss_term = loss
-        self.logger = logging.getLogger('torch_temp')
 
     def train(self, train_configs, optimizer_configs):
         # device

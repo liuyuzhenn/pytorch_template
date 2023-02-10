@@ -28,7 +28,6 @@ def train(configs):
         log_dir = configs['train_configs']['log_dir']
         if not os.path.isdir(log_dir):
             os.makedirs(log_dir)
-
         with open(os.path.join(log_dir, 'configs.yml'), 'w') as f:
             yaml.dump(configs, f, default_style=False)
 
@@ -57,8 +56,6 @@ def train(configs):
     trainer = getattr(trainer, _name_to_class(
         train_configs['name']))(model, dataset, loss)
 
-    logger = get_logger(train_configs['log_dir'])
-    logger.info('Start to train...')
     try:
         trainer.train(train_configs, optimizer_configs)
     except KeyboardInterrupt:

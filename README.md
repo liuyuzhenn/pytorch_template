@@ -32,7 +32,7 @@ project
 - Dataset should inherit from `BaseDataset` in folder `datasets`.
 - Metrics is implemented as a child class of `BaseTrainer` in folder `trainers`.
 - Loss is defined as a child class of `BaseLoss` in folder `losses`.
-- Models inherits should be put in folder `models`
+- Models should be put in folder `models`
 
 ### Example
 
