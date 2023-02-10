@@ -102,6 +102,7 @@ class BaseTrainer(metaclass=ABCMeta):
 
     def train(self, train_configs, optimizer_configs):
         # device
+        self.logger = get_logger(train_configs['log_dir'])
         self.device = train_configs['device']
         if train_configs['data_parallel']:
             self.model = nn.DataParallel(self.model)
