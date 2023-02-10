@@ -6,6 +6,7 @@ import torch.nn as nn
 import logging
 import time
 from abc import ABCMeta, abstractmethod
+import yaml
 import os
 from torch.utils.tensorboard.writer import SummaryWriter
 
@@ -49,6 +50,46 @@ class BaseTrainer(metaclass=ABCMeta):
         Returns:
             None
         """
+        self.device = test_configs['device']
+        checkpoint = torch.load(test_configs['checkpoint'], map_location=test_configs['device'])
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.model.to(self.device)
+
+        val_data = self.dataset.get_data_loader('val')
+
+        self.model.eval()
+        # Validation
+        avg_meter = DictAverageMeter()
+        with torch.no_grad():
+            self.model.eval()
+            for data in val_data:
+                data = to_device(data, self.device)
+                model_outputs = self.model.forward(data)
+
+                try:
+                    loss = self.loss_term.compute(model_outputs, data)
+                except NoGradientError:
+                    continue
+
+                if isinstance(loss, tuple):
+                    loss, items = loss
+                else:
+                    items = None
+
+                if items is not None:
+                    items.update({'loss': float(loss)})
+                else:
+                    items = {'loss': float(loss)}
+
+                metrics = self._metrics(model_outputs, data)
+                if metrics is not None:
+                    items.update(metrics)
+
+                avg_meter.update(tensor2float(items))
+        metrics = avg_meter.mean()
+        with open(test_configs['file_path'], 'w') as f:
+            yaml.dump(metrics, f, default_flow_style=False)
+
 
     def _init_weights(self):
         """Initialize model weight at the beggining of training"""
@@ -60,7 +101,6 @@ class BaseTrainer(metaclass=ABCMeta):
         self.logger = logging.getLogger('torch_temp')
 
     def train(self, train_configs, optimizer_configs):
-        self._init_weights()
         # device
         self.device = train_configs['device']
         if train_configs['data_parallel']:
@@ -89,6 +129,7 @@ class BaseTrainer(metaclass=ABCMeta):
         checkpoint = train_configs.get('checkpoint', '')
         if checkpoint == '':
             self.logger.info('Initializing new weights...')
+            self._init_weights()
             self.epoch = 0
         else:
             self.logger.info(
@@ -194,8 +235,9 @@ class BaseTrainer(metaclass=ABCMeta):
 
             self.epoch += 1
 
-    def save(self, out_dir):
-        save_path = os.path.join(out_dir, 'ckpt{:0>4}.pth'.format(self.epoch))
+    def save(self, out_dir, ckpt_name=None):
+        ckpt_name = 'ckpt_{:0>4}.pth'.format(self.epoch) if ckpt_name is None else ckpt_name
+        save_path = os.path.join(out_dir, ckpt_name)
         torch.save({
             'epoch': self.epoch,
             'model_state_dict': self.model.state_dict(),

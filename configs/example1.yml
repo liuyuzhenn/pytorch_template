@@ -38,6 +38,9 @@ train_configs:
   summary_freq: 20
 
 test_configs:
+  name: "trainer"
   device: "cpu" # necessary
+  split: "val"
   data_parallel: false # necessary
-  checkpoint: "" # should contain "model_state_dict"
+  checkpoint: "./experiments/example/ckpt0050.pth" # should contain "model_state_dict"
+  file_path: "./experiments/example/test.yml"
