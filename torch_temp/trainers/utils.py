@@ -118,6 +118,6 @@ class DictAverageMeter(object):
 
     def mean(self):
         if self.count > 0:
-            return {k: v / self.count for k, v in self.data.items()}
+            return {k: float(v/self.count) for k, v in self.data.items()}
         else:
             return {}
