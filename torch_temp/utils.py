@@ -22,7 +22,11 @@ def get_logger(logdir):
 def train(configs):
     # save the configutation in the log directory
     if configs.get('save_configs', True):
-        with open(os.path.join(configs['train_configs']['log_dir'], 'configs.yml'), 'w') as f:
+        log_dir = configs['train_configs']['log_dir']
+        if not os.path.isdir(log_dir):
+            os.makedirs(log_dir)
+
+        with open(os.path.join(log_dir, 'configs.yml'), 'w') as f:
             yaml.dump(configs, f, default_style=False)
 
     project = configs.get('project', 'torch_temp')
@@ -32,10 +36,6 @@ def train(configs):
     loss_configs = configs['loss_configs']
     optimizer_configs = configs['optimizer_configs']
     train_configs = configs['train_configs']
-
-    out_dir = train_configs['log_dir']
-    if not os.path.isdir(out_dir):
-        os.makedirs(out_dir)
 
     model = get_module('{}.models.{}'.format(project, model_configs['name']), '..')
     dataset = get_module('{}.datasets.{}'.format(project, dataset_configs['name']), '..')
@@ -54,4 +54,4 @@ def train(configs):
     except KeyboardInterrupt:
         trainer.logger.info(
             'Got Keyboard Interuption, saving model and closing.')
-        trainer.save(train_configs['log_dir'],'interrupt_ckpt.pt')
+        trainer.save(train_configs['log_dir'],'interrupt_ckpt.pth')
