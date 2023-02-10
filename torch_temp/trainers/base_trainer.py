@@ -16,20 +16,6 @@ from .utils import *
 class BaseTrainer(metaclass=ABCMeta):
     """Base trainer from training/testing and logging
     """
-    # @abstractmethod
-    # def _forward(self, inputs, mode):
-    #     """ Calls the model on some input.
-    #
-    #     Args:
-    #         inputs: A dictionary of input features, where the keys are their
-    #             names (e.g. `"image"`) and the values of type `torch.Tensor`.
-    #         mode: An attribute of the `Mode` class, either `Mode.TRAIN`,
-    #               `Mode.TEST`
-    #
-    #     Returns:
-    #         A dictionary of outputs, where the keys are their names
-    #         (e.g. `"logits"`) and the values are the corresponding Tensor.
-    #     """
 
     def _metrics(self, outputs_model, inputs_data) -> dict:
         """Compute metrics that is saved in tensorboard.
@@ -209,7 +195,7 @@ class BaseTrainer(metaclass=ABCMeta):
             self.epoch += 1
 
     def save(self, out_dir):
-        save_path = os.path.join(out_dir, 'ckpt{:0>4}'.format(self.epoch))
+        save_path = os.path.join(out_dir, 'ckpt{:0>4}.pth'.format(self.epoch))
         torch.save({
             'epoch': self.epoch,
             'model_state_dict': self.model.state_dict(),
