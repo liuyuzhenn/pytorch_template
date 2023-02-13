@@ -34,7 +34,8 @@ train_configs:
   data_parallel: false
   enable_tensorboard: true
   num_epochs: 100
-  checkpoint: ""
+  checkpoint: "./experiments/example/ckpt_0001.pth"
+  # checkpoint: ""
   summary_freq: 20
 
 test_configs:

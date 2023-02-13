@@ -237,10 +237,10 @@ class BaseTrainer(metaclass=ABCMeta):
             self.epoch += 1
 
     def save(self, out_dir, ckpt_name=None):
-        ckpt_name = 'ckpt_{:0>4}.pth'.format(self.epoch) if ckpt_name is None else ckpt_name
+        ckpt_name = 'ckpt_{:0>4}.pth'.format(self.epoch+1) if ckpt_name is None else ckpt_name
         save_path = os.path.join(out_dir, ckpt_name)
         torch.save({
-            'epoch': self.epoch,
+            'epoch': self.epoch+1,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
         }, save_path)
