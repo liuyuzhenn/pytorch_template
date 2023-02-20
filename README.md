@@ -14,6 +14,8 @@ A template for pytorch project that is easy to use.
 
 Configurations are defined in yaml files.
 
+See `./configs/example1.yml`.
+
 ### Project structure
 
 The directory structure of a project should be like:
@@ -29,7 +31,7 @@ project
     └── my_trainer.py
 ```
 
-- Dataset should inherit from `BaseDataset` in folder `datasets`.
+- Dataset is defined as a child class of `BaseDataset` in folder `datasets`.
 - Metrics is implemented as a child class of `BaseTrainer` in folder `trainers`.
 - Loss is defined as a child class of `BaseLoss` in folder `losses`.
 - Models should be put in folder `models`
