@@ -12,7 +12,10 @@ A template for pytorch project that is easy to use.
 
 ### Configuration
 
-Configurations are defined in yaml files.
+Configurations are defined in yaml files, including:
+- training hyperparameters, *e.g.* learning rate, epochs...
+- model hyperparameters
+- datset hyperparameters
 
 See `./configs/example1.yml`.
 
@@ -32,7 +35,7 @@ project
 ```
 
 - Dataset is defined as a child class of `BaseDataset` in folder `datasets`.
-- Metrics is implemented as a child class of `BaseTrainer` in folder `trainers`.
+- Metrics is implemented in a child class of `BaseTrainer` in folder `trainers`.
 - Loss is defined as a child class of `BaseLoss` in folder `losses`.
 - Models should be put in folder `models`
 
@@ -45,6 +48,11 @@ $$x_1^2+e^{x_1+x_2}-2x_3$$
 
 Use `python example1/run.py` to run the demo.
 
+## BUGS
+
+Raising issues is welcomed.
+
 ## TO DO ✅
 
 - [ ] Add more examples.
+
