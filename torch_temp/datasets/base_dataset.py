@@ -6,7 +6,7 @@ class BaseDataset(metaclass=ABCMeta):
     @abstractmethod
     def get_dataset(self, split):
         """To be implemented by the child class
-        
+
         Args:
             split: "train"|"val"|"test".
 
@@ -22,4 +22,5 @@ class BaseDataset(metaclass=ABCMeta):
         assert split in ['train', 'val', 'test']
         batch_size = self.configs['batch_size']
         return DataLoader(self.get_dataset(split), batch_size=batch_size,
-                          shuffle=(split == 'train'), drop_last=True)
+                          shuffle=(split == 'train'), drop_last=True,
+                          num_workers=self.configs['num_workers'])

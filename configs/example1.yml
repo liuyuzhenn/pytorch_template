@@ -5,8 +5,9 @@ seed: 0 # default is 0
 dataset_configs:
   name: "my_dataset"
   batch_size: 512 # necessary
-  train_size: 10240 # necessary
+  num_workers: 2
 
+  train_size: 10240
   noise: 1 # std of gaussian noise
   val_size: 1024
   min: -2
