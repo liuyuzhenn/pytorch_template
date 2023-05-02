@@ -45,7 +45,7 @@ def train(configs):
         project, dataset_configs['name']), '..')
     loss = get_module('{}.losses.{}'.format(
         project, loss_configs['name']), '..')
-    trainer = get_module('{}.trainers.{}'.format(
+    runner = get_module('{}.runners.{}'.format(
         project, train_configs['name']), '..')
 
     model = getattr(model, _name_to_class(
@@ -53,15 +53,15 @@ def train(configs):
     dataset = getattr(dataset, _name_to_class(
         dataset_configs['name']))(dataset_configs)
     loss = getattr(loss, _name_to_class(loss_configs['name']))(loss_configs)
-    trainer = getattr(trainer, _name_to_class(
+    runner = getattr(runner, _name_to_class(
         train_configs['name']))(model, dataset, loss)
 
     try:
-        trainer.train(train_configs, optimizer_configs)
+        runner.train(train_configs, optimizer_configs)
     except KeyboardInterrupt:
-        trainer.logger.info(
+        runner.logger.info(
             'Got Keyboard Interuption, saving model and closing.')
-        trainer.save(train_configs['log_dir'], 'interrupt_ckpt.pth')
+        runner.save(train_configs['log_dir'], 'interrupt_ckpt.pth')
 
 
 def test(configs):
@@ -78,7 +78,7 @@ def test(configs):
         project, dataset_configs['name']), '..')
     loss = get_module('{}.losses.{}'.format(
         project, loss_configs['name']), '..')
-    trainer = get_module('{}.trainers.{}'.format(
+    runner = get_module('{}.runners.{}'.format(
         project, test_configs['name']), '..')
 
     model = getattr(model, _name_to_class(
@@ -86,7 +86,7 @@ def test(configs):
     dataset = getattr(dataset, _name_to_class(
         dataset_configs['name']))(dataset_configs)
     loss = getattr(loss, _name_to_class(loss_configs['name']))(loss_configs)
-    trainer = getattr(trainer, _name_to_class(
+    runner = getattr(runner, _name_to_class(
         test_configs['name']))(model, dataset, loss)
 
-    trainer.test(test_configs)
+    runner.test(test_configs)

@@ -15,8 +15,8 @@ from torch_temp.utils import get_logger
 from .utils import *
 
 
-class BaseTrainer(metaclass=ABCMeta):
-    """Base trainer from training/testing and logging
+class BaseRunner(metaclass=ABCMeta):
+    """Base runner from training/testing and logging
     """
 
     def _metrics(self, outputs_model, inputs_data, mode='train') -> dict:
@@ -107,6 +107,7 @@ class BaseTrainer(metaclass=ABCMeta):
         if train_configs['data_parallel']:
             self.model = nn.DataParallel(self.model)
         self.model.to(self.device)
+        self.logger.info('Parameter count: {}'.format(sum(p.numel() for p in self.model.parameters())))
 
         ##################
         # train/val data #

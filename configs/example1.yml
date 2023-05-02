@@ -29,7 +29,7 @@ optimizer_configs:
   weight_decay: 0.0
 
 train_configs:
-  name: 'trainer' # necessary
+  name: 'runner' # necessary
   device: "cuda" # necessary
   log_dir: "experiments/example" # necessary
   data_parallel: false
@@ -40,7 +40,7 @@ train_configs:
   summary_freq: 20
 
 test_configs:
-  name: "trainer"
+  name: "runner"
   device: "cpu" # necessary
   split: "val"
   data_parallel: false # necessary

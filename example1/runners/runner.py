@@ -1,9 +1,9 @@
-from torch_temp.trainers.base_trainer import BaseTrainer
+from torch_temp.runners.base_runner import BaseRunner
 import numpy as np
 import torch
 
 
-class Trainer(BaseTrainer):
+class Runner(BaseRunner):
     def __init__(self, model, dataset, loss):
         super().__init__(model, dataset, loss)
 
