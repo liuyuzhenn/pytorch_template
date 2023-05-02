@@ -82,7 +82,7 @@ class BaseTrainer(metaclass=ABCMeta):
                 else:
                     items = {'loss': float(loss)}
 
-                metrics = self._metrics(model_outputs, data)
+                metrics = self._metrics(model_outputs, data, mode='test')
                 if metrics is not None:
                     items.update(metrics)
 
@@ -178,7 +178,7 @@ class BaseTrainer(metaclass=ABCMeta):
                 else:
                     items = {'loss': float(loss)}
 
-                metrics = self._metrics(model_outputs, data)
+                metrics = self._metrics(model_outputs, data, mode='train')
                 if metrics is not None:
                     items.update(metrics)
                 # save in average meter
@@ -223,7 +223,7 @@ class BaseTrainer(metaclass=ABCMeta):
                     else:
                         items = {'loss': float(loss)}
 
-                    metrics = self._metrics(model_outputs, data)
+                    metrics = self._metrics(model_outputs, data, mode='val')
                     if metrics is not None:
                         items.update(metrics)
 
