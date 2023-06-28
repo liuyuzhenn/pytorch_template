@@ -52,7 +52,8 @@ class BaseRunner(metaclass=ABCMeta):
             None
         """
         self.device = test_configs['device']
-        checkpoint = torch.load(test_configs['checkpoint'], map_location=test_configs['device'])
+        checkpoint = torch.load(
+            test_configs['checkpoint'], map_location=test_configs['device'])
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.to(self.device)
 
@@ -91,7 +92,6 @@ class BaseRunner(metaclass=ABCMeta):
         with open(test_configs['file_path'], 'w') as f:
             yaml.dump(metrics, f, default_flow_style=False)
 
-
     def _init_weights(self):
         """Initialize model weight at the beggining of training"""
 
@@ -107,7 +107,8 @@ class BaseRunner(metaclass=ABCMeta):
         if train_configs['data_parallel']:
             self.model = nn.DataParallel(self.model)
         self.model.to(self.device)
-        self.logger.info('Parameter count: {}'.format(sum(p.numel() for p in self.model.parameters())))
+        self.logger.info('Parameter count: {}'.format(
+            sum(p.numel() for p in self.model.parameters())))
 
         ##################
         # train/val data #
@@ -193,52 +194,58 @@ class BaseRunner(metaclass=ABCMeta):
 
             if writer is not None and avg_meter.count != 0:
                 save_scalars(writer, 'train_avg', avg_meter.mean(), self.epoch)
+                self.logger.info('[Train] [Epoch {}/{}] {}'.format(self.epoch+1, 
+                                                                 train_configs['num_epochs'], dict_to_str(avg_meter.mean())))
             self.save(train_configs['log_dir'])
 
             # Validation
-            avg_meter = DictAverageMeter()
-            with torch.no_grad():
-                self.model.eval()
-                for i, data in enumerate(val_data):
-                    data = to_device(data, self.device)
-                    model_outputs = self.model.forward(data)
+            if self.epoch % train_configs.get('val_interval', 1) == 0:
+                avg_meter = DictAverageMeter()
+                with torch.no_grad():
+                    self.model.eval()
+                    for i, data in enumerate(val_data):
+                        data = to_device(data, self.device)
+                        model_outputs = self.model.forward(data)
 
-                    t1 = time.time()
-                    try:
-                        loss = self.loss_term.compute(model_outputs, data)
-                    except NoGradientError:
-                        self.logger.info('[Val] [Epoch {}/{}] [Iteration {}/{}] {}'
-                                         .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_data), 'No Gradient!'))
-                        continue
-                    t2 = time.time()
-                    if isinstance(loss, tuple):
-                        loss, items = loss
-                    else:
-                        items = None
+                        t1 = time.time()
+                        try:
+                            loss = self.loss_term.compute(model_outputs, data)
+                        except NoGradientError:
+                            self.logger.info('[Val] [Epoch {}/{}] [Iteration {}/{}] {}'
+                                             .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_data), 'No Gradient!'))
+                            continue
+                        t2 = time.time()
+                        if isinstance(loss, tuple):
+                            loss, items = loss
+                        else:
+                            items = None
 
-                    self.logger.info('[Val] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s'
-                                     .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_data), float(loss), t2-t1))
-                    global_step = len(val_data)*self.epoch+i
-                    if items is not None:
-                        items.update({'loss': float(loss)})
-                    else:
-                        items = {'loss': float(loss)}
+                        self.logger.info('[Val] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s'
+                                         .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_data), float(loss), t2-t1))
+                        global_step = len(val_data)*self.epoch+i
+                        if items is not None:
+                            items.update({'loss': float(loss)})
+                        else:
+                            items = {'loss': float(loss)}
 
-                    metrics = self._metrics(model_outputs, data, mode='val')
-                    if metrics is not None:
-                        items.update(metrics)
+                        metrics = self._metrics(
+                            model_outputs, data, mode='val')
+                        if metrics is not None:
+                            items.update(metrics)
 
-                    avg_meter.update(tensor2float(items))
+                        avg_meter.update(tensor2float(items))
 
-                if writer is not None and avg_meter.count != 0:
-                    save_scalars(writer, 'val', avg_meter.mean(), self.epoch)
-                    self.logger.info('[Val] [Epoch {}/{}] {}'.format(self.epoch+1,
-                                                                     train_configs['num_epochs'], dict_to_str(avg_meter.mean())))
+                    if writer is not None and avg_meter.count != 0:
+                        save_scalars(
+                            writer, 'val', avg_meter.mean(), self.epoch)
+                        self.logger.info('[Val] [Epoch {}/{}] {}'.format(self.epoch+1,
+                                                                         train_configs['num_epochs'], dict_to_str(avg_meter.mean())))
 
             self.epoch += 1
 
     def save(self, out_dir, ckpt_name=None):
-        ckpt_name = 'ckpt_{:0>4}.pth'.format(self.epoch+1) if ckpt_name is None else ckpt_name
+        ckpt_name = 'ckpt_{:0>4}.pth'.format(
+            self.epoch+1) if ckpt_name is None else ckpt_name
         save_path = os.path.join(out_dir, ckpt_name)
         torch.save({
             'epoch': self.epoch+1,
