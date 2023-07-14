@@ -27,7 +27,8 @@ args = parser.parse_args()
 
 with open(args.configs, 'r') as f:
     configs = yaml.full_load(f)
-    update_configs(configs, args.cfg_options)
+    if args.cfg_options is not None:
+        update_configs(configs, args.cfg_options)
 
 seed = configs.get('seed',0)
 np.random.seed(seed)
