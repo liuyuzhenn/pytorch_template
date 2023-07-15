@@ -1,4 +1,4 @@
-project: "example1" # should match the folder name
+project: "demo" # should match the folder name
 
 seed: 0 # default is 0
 
@@ -31,18 +31,18 @@ optimizer_configs:
 train_configs:
   name: 'runner' # necessary
   device: "cuda" # necessary
-  log_dir: "experiments/example" # necessary
+  log_dir: "experiments/demo" # necessary
   data_parallel: false
   enable_tensorboard: true
   num_epochs: 100
   # checkpoint: "./experiments/example/ckpt_0001.pth"
   checkpoint: ""
-  summary_freq: 20
+  summary_freq: 50
 
 test_configs:
   name: "runner"
   device: "cpu" # necessary
   split: "val"
   data_parallel: false # necessary
-  checkpoint: "./experiments/example/ckpt0050.pth" # should contain "model_state_dict"
-  file_path: "./experiments/example/test.yml"
+  checkpoint: "./experiments/demo/ckpt0050.pth" # should contain "model_state_dict"
+  file_path: "./experiments/demo/test.yml"

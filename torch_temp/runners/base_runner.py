@@ -104,8 +104,6 @@ class BaseRunner(metaclass=ABCMeta):
         # device
         self.logger = get_logger(train_configs['log_dir'])
         self.device = train_configs['device']
-        if train_configs['data_parallel']:
-            self.model = nn.DataParallel(self.model)
         self.model.to(self.device)
         self.logger.info('Parameter count: {}'.format(
             sum(p.numel() for p in self.model.parameters())))
@@ -138,6 +136,12 @@ class BaseRunner(metaclass=ABCMeta):
             self.logger.info(
                 'Loading weights from {}...'.format(checkpoint))
             self.load(checkpoint)
+
+        if train_configs['data_parallel']:
+            self.model = nn.DataParallel(self.model)
+            self.parallel = True
+        else:
+            self.parallel = False
 
         ##########################
         # initialize tensorboard #
@@ -249,7 +253,7 @@ class BaseRunner(metaclass=ABCMeta):
         save_path = os.path.join(out_dir, ckpt_name)
         torch.save({
             'epoch': self.epoch+1,
-            'model_state_dict': self.model.state_dict(),
+            'model_state_dict': self.model.module.state_dict() if self.parallel else self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
         }, save_path)
 

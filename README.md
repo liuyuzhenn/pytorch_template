@@ -17,7 +17,7 @@ Configurations are defined in yaml files, including:
 - model hyperparameters
 - datset hyperparameters
 
-See `./configs/example1.yml`.
+See `./configs/demo.yml`.
 
 ### Project structure
 
@@ -41,12 +41,12 @@ project
 
 ### Example
 
-An example could be found in the `example1` folder.
+An example could be found in the `demo` folder.
 
 This project is to train a model to fit the following function: 
 $$x_1^2+e^{x_1+x_2}-2x_3$$
 
-Use `python example1/train.py` to run the demo.
+Use `python demo/train.py` to run the demo.
 
 ## BUGS
 
