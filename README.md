@@ -41,18 +41,10 @@ project
 
 ### Example
 
-An example could be found in the `demo` folder.
+An example could be found in the `torch_temp` folder.
 
 This project is to train a model to fit the following function: 
 $$x_1^2+e^{x_1+x_2}-2x_3$$
 
-Use `python demo/train.py` to run the demo.
-
-## BUGS
-
-Raising issues is welcomed.
-
-## TO DO ✅
-
-- [ ] Add more examples.
+Use `python torch_temp/train.py` to run the demo.
 

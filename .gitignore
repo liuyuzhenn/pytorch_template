@@ -2,5 +2,4 @@ __pycache__/
 experiments/
 ablation/
 rebuttal/
-.vscode/
 pyrightconfig.json

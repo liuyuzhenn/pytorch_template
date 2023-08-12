@@ -3,8 +3,6 @@ import os
 import yaml
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
-import sys
-sys.path.append('.')
 from torch_temp.utils import test as ttest
 from torch_temp.config import DictAction, update_configs
 

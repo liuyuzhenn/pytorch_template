@@ -40,13 +40,14 @@ def train(configs):
     train_configs = configs['train_configs']
 
     model = get_module('{}.models.{}'.format(
-        project, model_configs['name']), '..')
+        project, model_configs['name']), '.')
     dataset = get_module('{}.datasets.{}'.format(
-        project, dataset_configs['name']), '..')
+        project, dataset_configs['name']), '.')
     loss = get_module('{}.losses.{}'.format(
-        project, loss_configs['name']), '..')
+        project, loss_configs['name']), '.')
     runner = get_module('{}.runners.{}'.format(
-        project, train_configs['name']), '..')
+        project, train_configs['name']), '.')
+
 
     model = getattr(model, _name_to_class(
         model_configs['name']))(model_configs)

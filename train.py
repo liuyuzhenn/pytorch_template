@@ -5,8 +5,6 @@ import yaml
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 import torch
-import sys
-sys.path.append('.')
 from torch_temp.utils import train as ttrain
 from torch_temp.config import DictAction, update_configs
 

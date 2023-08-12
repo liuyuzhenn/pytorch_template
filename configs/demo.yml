@@ -1,4 +1,4 @@
-project: "demo" # should match the folder name
+project: "torch_temp" # should match the folder name
 
 seed: 0 # default is 0
 
