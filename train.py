@@ -8,6 +8,7 @@ import torch
 from torch_temp.utils import train as ttrain
 from torch_temp.config import DictAction, update_configs
 
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--configs', type=str, default='./configs/demo.yml')
 parser.add_argument(

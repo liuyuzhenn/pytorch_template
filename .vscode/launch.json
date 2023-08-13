@@ -2,23 +2,23 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "example1",
+			"name": "train",
 			"type": "python",
 			"request": "launch",
 			"stopOnEntry": false,
 			"pythonPath": "/home/liuyuzhen/anaconda3/envs/vloc/bin/python",
-			"program": "torch_temp/train.py",
+			"program": "train.py",
 			"console": "integratedTerminal",
 			"cwd": "${workspaceFolder}",
 			"args": []
 		},
 		{
-			"name": "example1_test",
+			"name": "test",
 			"type": "python",
 			"request": "launch",
 			"stopOnEntry": false,
 			"pythonPath": "/home/liuyuzhen/anaconda3/envs/vloc/bin/python",
-			"program": "torch_temp/test.py",
+			"program": "test.py",
 			"console": "integratedTerminal",
 			"cwd": "${workspaceFolder}",
 			"args": []

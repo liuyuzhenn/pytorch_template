@@ -1,4 +1,4 @@
-from torch_temp.losses.base_loss import BaseLoss
+from .base_loss import BaseLoss
 import torch.nn.functional as F
 import torch
 

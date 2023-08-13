@@ -4,12 +4,12 @@ seed: 0 # default is 0
 
 dataset_configs:
   name: "my_dataset"
-  batch_size: 512 # necessary
-  num_workers: 2
+  batch_size: 128 # necessary
+  num_workers: 1
 
-  train_size: 10240
+  train_size: 4096
   noise: 1 # std of gaussian noise
-  val_size: 1024
+  val_size: 4096
   min: -2
   max: 2
 
@@ -23,26 +23,34 @@ loss_configs:
   name: "l2_loss" # necessary
 
 optimizer_configs:
+  # see: https://pytorch.org/docs/stable/optim.html
   name: "Adam" # necessary
-  lr: 0.001
+  lr: 0.01
   betas: [0.9, 0.999]
   weight_decay: 0.0
-
+  lr_scheduler:
+    name: "ExponentialLR"
+    gamma: 0.999
+  # lr_scheduler:
+  #   name: "LambdaLR"
+  #   lr_lambda: "lambda p: 0.99**p"
+    
 train_configs:
-  name: 'runner' # necessary
-  device: "cuda" # necessary
-  log_dir: "experiments/demo" # necessary
+  name: 'runner'
+  device: "cuda"
+  workspace: "experiments/demo"
   data_parallel: false
   enable_tensorboard: true
   num_epochs: 100
-  # checkpoint: "./experiments/example/ckpt_0001.pth"
-  checkpoint: ""
+  resume: true
+  # checkpoint: 
+  checkpoint_interval: 1
   summary_freq: 50
+  val_interval: 1
 
 test_configs:
   name: "runner"
   device: "cpu" # necessary
   split: "val"
-  data_parallel: false # necessary
-  checkpoint: "./experiments/demo/ckpt0050.pth" # should contain "model_state_dict"
+  checkpoint: "./experiments/demo/ckpt0050.pth"
   file_path: "./experiments/demo/test.yml"

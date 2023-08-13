@@ -1,4 +1,4 @@
-from torch_temp.runners.base_runner import BaseRunner
+from .base_runner import BaseRunner
 import numpy as np
 import torch
 

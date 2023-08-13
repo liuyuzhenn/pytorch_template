@@ -1,17 +1,16 @@
 import importlib
-from numpy import copy
 import torch
-# import torch.optim as optim
+import glob
 import torch.nn as nn
-import logging
 import time
-from abc import ABCMeta, abstractmethod
 import yaml
 import os
 from torch.utils.tensorboard.writer import SummaryWriter
+import shutil
+from abc import ABCMeta
 
-from torch_temp.losses.base_loss import NoGradientError
-from torch_temp.utils import get_logger
+from ..losses.base_loss import NoGradientError
+from ..utils import get_logger
 from .utils import *
 
 
@@ -57,7 +56,7 @@ class BaseRunner(metaclass=ABCMeta):
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.to(self.device)
 
-        val_data = self.dataset.get_data_loader('val')
+        val_data = self.dataset.get_data_loader(test_configs['split'])
 
         self.model.eval()
         # Validation
@@ -92,7 +91,7 @@ class BaseRunner(metaclass=ABCMeta):
         with open(test_configs['file_path'], 'w') as f:
             yaml.dump(metrics, f, default_flow_style=False)
 
-    def _init_weights(self):
+    def init_weights(self):
         """Initialize model weight at the beggining of training"""
 
     def __init__(self, model, dataset, loss):
@@ -102,10 +101,11 @@ class BaseRunner(metaclass=ABCMeta):
 
     def train(self, train_configs, optimizer_configs):
         # device
-        self.logger = get_logger(train_configs['log_dir'])
+        workspace = train_configs['workspace']
+        self.logger = get_logger(workspace)
         self.device = train_configs['device']
         self.model.to(self.device)
-        self.logger.info('Parameter count: {}'.format(
+        self.logger.info("Parameter count: {}".format(
             sum(p.numel() for p in self.model.parameters())))
 
         ##################
@@ -121,22 +121,54 @@ class BaseRunner(metaclass=ABCMeta):
         name = optimizer_configs['name']
         params = optimizer_configs.copy()
         params.pop('name')
+        scheduler_configs = params.pop('lr_scheduler', None)
         self.optimizer = getattr(optim, name)(
             self.model.parameters(), **params)
+
+        ####################
+        # set up scheduler #
+        ####################
+        if scheduler_configs is None:
+            # seudo scheduler
+            self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
+                self.optimizer, lambda epoch: 1)
+        else:
+            lib_schedulers = importlib.import_module(
+                'torch.optim.lr_scheduler')
+            name_scheduler = scheduler_configs['name']
+            self.params = scheduler_configs.copy()
+            self.params.pop('name')
+            self.params = {k: (v if k!='lr_lambda' else eval(v)) for k,v in self.params.items()}
+            self.lr_scheduler = getattr(lib_schedulers, name_scheduler)(
+                self.optimizer, **self.params)
 
         ################################
         # continue from the checkpoint #
         ################################
-        checkpoint = train_configs.get('checkpoint', '')
-        if checkpoint == '':
-            self.logger.info('Initializing new weights...')
-            self._init_weights()
-            self.epoch = 0
-        else:
-            self.logger.info(
-                'Loading weights from {}...'.format(checkpoint))
-            self.load(checkpoint)
+        self.epoch = 0
+        self.init_weights()
 
+        resume = train_configs.get('resume', False)
+        if resume:
+            checkpoint = train_configs.get('checkpoint', None)
+            if checkpoint is None:
+                files = glob.glob(os.path.join(workspace, 'ckpt_*.pth'))
+                if len(files) > 0:
+                    checkpoint = files[-1]
+                else:
+                    self.logger.info("No checkpoint found!")
+
+            if checkpoint is not None:
+                if isinstance(checkpoint, int):
+                    checkpoint = 'ckpt_{:0>4}.pth'.format(checkpoint)
+                checkpoint = os.path.join(workspace, checkpoint)
+                self.logger.info(
+                    "Loading checkpoint from {}.".format(checkpoint))
+                self.load(checkpoint)
+
+        #######################
+        # setup data parallel #
+        #######################
         if train_configs['data_parallel']:
             self.model = nn.DataParallel(self.model)
             self.parallel = True
@@ -147,10 +179,12 @@ class BaseRunner(metaclass=ABCMeta):
         # initialize tensorboard #
         ##########################
         if train_configs.get('enable_tensorboard', True):
-            writer = SummaryWriter(train_configs['log_dir'])
+            writer = SummaryWriter(workspace)
         else:
             writer = None
 
+        loss_val_min = np.inf
+        ckpt_best = 'best.pth'
         while self.epoch < train_configs['num_epochs']:
             # Train
             avg_meter = DictAverageMeter()
@@ -163,7 +197,7 @@ class BaseRunner(metaclass=ABCMeta):
                 try:
                     loss = self.loss_term.compute(model_outputs, data)
                 except NoGradientError:
-                    self.logger.info('[Train] [Epoch {}/{}] [Iteration {}/{}] {}'
+                    self.logger.info("[Train] [Epoch {}/{}] [Iteration {}/{}] {}"
                                      .format(self.epoch+1, train_configs['num_epochs'], i+1, len(train_data), 'No Gradient!'))
                     continue
                 if isinstance(loss, tuple):
@@ -176,7 +210,7 @@ class BaseRunner(metaclass=ABCMeta):
 
                 global_step = len(train_data)*self.epoch+i
 
-                self.logger.info('[Train] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s'
+                self.logger.info("[Train] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s"
                                  .format(self.epoch+1, train_configs['num_epochs'], i+1, len(train_data), float(loss), t2-t1))
 
                 if items is not None:
@@ -198,9 +232,13 @@ class BaseRunner(metaclass=ABCMeta):
 
             if writer is not None and avg_meter.count != 0:
                 save_scalars(writer, 'train_avg', avg_meter.mean(), self.epoch)
-                self.logger.info('[Train] [Epoch {}/{}] {}'.format(self.epoch+1, 
-                                                                 train_configs['num_epochs'], dict_to_str(avg_meter.mean())))
-            self.save(train_configs['log_dir'])
+                self.logger.info("[Train] [Epoch {}/{}] {}".format(self.epoch+1,
+                                                                   train_configs['num_epochs'], dict_to_str(avg_meter.mean())))
+            self.lr_scheduler.step()
+            self.logger.info("Adjusting learning rate of group 0 to {}.".format(
+                self.optimizer.param_groups[0]['lr']))
+            if self.epoch % train_configs['checkpoint_interval'] == 0:
+                self.save(workspace)
 
             # Validation
             if self.epoch % train_configs.get('val_interval', 1) == 0:
@@ -215,7 +253,7 @@ class BaseRunner(metaclass=ABCMeta):
                         try:
                             loss = self.loss_term.compute(model_outputs, data)
                         except NoGradientError:
-                            self.logger.info('[Val] [Epoch {}/{}] [Iteration {}/{}] {}'
+                            self.logger.info("[Val] [Epoch {}/{}] [Iteration {}/{}] {}"
                                              .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_data), 'No Gradient!'))
                             continue
                         t2 = time.time()
@@ -224,7 +262,7 @@ class BaseRunner(metaclass=ABCMeta):
                         else:
                             items = None
 
-                        self.logger.info('[Val] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s'
+                        self.logger.info("[Val] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s"
                                          .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_data), float(loss), t2-t1))
                         global_step = len(val_data)*self.epoch+i
                         if items is not None:
@@ -239,11 +277,19 @@ class BaseRunner(metaclass=ABCMeta):
 
                         avg_meter.update(tensor2float(items))
 
-                    if writer is not None and avg_meter.count != 0:
-                        save_scalars(
-                            writer, 'val', avg_meter.mean(), self.epoch)
-                        self.logger.info('[Val] [Epoch {}/{}] {}'.format(self.epoch+1,
-                                                                         train_configs['num_epochs'], dict_to_str(avg_meter.mean())))
+                    if avg_meter.count != 0:
+                        meter_mean = avg_meter.mean()
+                        self.logger.info("[Val] [Epoch {}/{}] {}".format(self.epoch+1,
+                                                                         train_configs['num_epochs'], dict_to_str(meter_mean)))
+                        if writer is not None:
+                            save_scalars(writer, 'val', meter_mean, self.epoch)
+
+                        loss_current = meter_mean['loss']
+                        if loss_current < loss_val_min:
+                            loss_val_min = loss_current
+                            self.logger.info(
+                                "Update best ckeckpoint, saved as {}".format(ckpt_best))
+                            self.save(workspace, ckpt_best)
 
             self.epoch += 1
 
@@ -255,10 +301,16 @@ class BaseRunner(metaclass=ABCMeta):
             'epoch': self.epoch+1,
             'model_state_dict': self.model.module.state_dict() if self.parallel else self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
+            'lr_scheduler_state_dict': self.lr_scheduler.state_dict(),
         }, save_path)
 
-    def load(self, checkpoint_path):
+    def load(self, checkpoint_path, model_only=False):
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.epoch = checkpoint['epoch']
+        if not model_only:
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.lr_scheduler.load_state_dict(
+                checkpoint['lr_scheduler_state_dict'])
+            self.epoch = checkpoint['epoch']
+            self.logger.info("Adjusting learning rate of group 0 to {}.".format(
+                self.optimizer.param_groups[0]['lr']))

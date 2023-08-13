@@ -1,4 +1,4 @@
-from torch_temp.datasets.base_dataset import BaseDataset
+from .base_dataset import BaseDataset
 from torch.utils.data import Dataset
 import torch
 
