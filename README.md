@@ -13,9 +13,11 @@ A template for pytorch project that is easy to use.
 ### Configuration
 
 Configurations are defined in yaml files, including:
-- training hyperparameters, *e.g.* learning rate, epochs...
-- model hyperparameters
-- datset hyperparameters
+- training parameters, *e.g.* learning rate, epochs...
+- model parameters
+- datset parameters
+- optimizer parameters
+- lr_scheduler parameters
 
 See `./configs/demo.yml`.
 
