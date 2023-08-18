@@ -146,6 +146,7 @@ class BaseRunner(metaclass=ABCMeta):
         # continue from the checkpoint #
         ################################
         self.epoch = 0
+        self.loss_val_min = np.inf
         self.init_weights()
 
         resume = train_configs.get('resume', False)
@@ -183,7 +184,6 @@ class BaseRunner(metaclass=ABCMeta):
         else:
             writer = None
 
-        loss_val_min = np.inf
         ckpt_best = 'best.pth'
         while self.epoch < train_configs['num_epochs']:
             # Train
@@ -224,24 +224,25 @@ class BaseRunner(metaclass=ABCMeta):
                 # save in average meter
                 avg_meter.update(tensor2float(items))
 
-                if global_step % train_configs['summary_freq'] == 0:
+                if (global_step+1) % train_configs['summary_freq'] == 0:
                     images = self._get_images(model_outputs, data)
                     save_scalars(writer, 'train', items, global_step)
                     if images is not None:
                         save_images(writer, 'train', images, global_step)
 
             if writer is not None and avg_meter.count != 0:
-                save_scalars(writer, 'train_avg', avg_meter.mean(), self.epoch)
+                save_scalars(writer, 'train_avg', avg_meter.mean(), self.epoch+1)
                 self.logger.info("[Train] [Epoch {}/{}] {}".format(self.epoch+1,
                                                                    train_configs['num_epochs'], dict_to_str(avg_meter.mean())))
             self.lr_scheduler.step()
-            self.logger.info("Adjusting learning rate of group 0 to {}.".format(
-                self.optimizer.param_groups[0]['lr']))
-            if self.epoch % train_configs['checkpoint_interval'] == 0:
+            for g in self.optimizer.param_groups:
+                self.logger.info("Adjusting learning rate of group 0 to {}.".format(
+                    g['lr']))
+            if (self.epoch+1) % train_configs['checkpoint_interval'] == 0:
                 self.save(workspace)
 
             # Validation
-            if self.epoch % train_configs.get('val_interval', 1) == 0:
+            if (self.epoch+1) % train_configs.get('val_interval', 1) == 0:
                 avg_meter = DictAverageMeter()
                 with torch.no_grad():
                     self.model.eval()
@@ -264,7 +265,7 @@ class BaseRunner(metaclass=ABCMeta):
 
                         self.logger.info("[Val] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s"
                                          .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_data), float(loss), t2-t1))
-                        global_step = len(val_data)*self.epoch+i
+                        global_step = len(val_data)*self.epoch+i+1
                         if items is not None:
                             items.update({'loss': float(loss)})
                         else:
@@ -282,11 +283,11 @@ class BaseRunner(metaclass=ABCMeta):
                         self.logger.info("[Val] [Epoch {}/{}] {}".format(self.epoch+1,
                                                                          train_configs['num_epochs'], dict_to_str(meter_mean)))
                         if writer is not None:
-                            save_scalars(writer, 'val', meter_mean, self.epoch)
+                            save_scalars(writer, 'val', meter_mean, self.epoch+1)
 
                         loss_current = meter_mean['loss']
-                        if loss_current < loss_val_min:
-                            loss_val_min = loss_current
+                        if loss_current < self.loss_val_min:
+                            self.loss_val_min = loss_current
                             self.logger.info(
                                 "Update best ckeckpoint, saved as {}".format(ckpt_best))
                             self.save(workspace, ckpt_best)
@@ -302,6 +303,7 @@ class BaseRunner(metaclass=ABCMeta):
             'model_state_dict': self.model.module.state_dict() if self.parallel else self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'lr_scheduler_state_dict': self.lr_scheduler.state_dict(),
+            'loss_val_min': self.loss_val_min
         }, save_path)
 
     def load(self, checkpoint_path, model_only=False):
@@ -312,5 +314,8 @@ class BaseRunner(metaclass=ABCMeta):
             self.lr_scheduler.load_state_dict(
                 checkpoint['lr_scheduler_state_dict'])
             self.epoch = checkpoint['epoch']
-            self.logger.info("Adjusting learning rate of group 0 to {}.".format(
-                self.optimizer.param_groups[0]['lr']))
+            self.loss_val_min = checkpoint['loss_val_min']
+            
+            for g in self.optimizer.param_groups:
+                self.logger.info("Adjusting learning rate of group 0 to {}.".format(
+                    g['lr']))
