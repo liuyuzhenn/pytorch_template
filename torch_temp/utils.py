@@ -22,7 +22,7 @@ def get_logger(logdir):
     return logger
 
 
-def train(configs):
+def train(configs, args):
     # save the configutation in the log directory
     if configs.get('save_configs', True):
         workspace = configs['train_configs']['workspace']

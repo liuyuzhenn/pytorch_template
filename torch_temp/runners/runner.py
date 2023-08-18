@@ -11,11 +11,11 @@ class Runner(BaseRunner):
         with torch.no_grad():
             y_pred = outputs_model['y']
             y_gt = inputs_data['y']
-            residual = torch.norm(y_pred-y_gt, p=2, dim=-1).cpu().numpy()
+            residual = torch.norm(y_pred-y_gt, p=2, dim=-1)
             metrics = {
-                'residual_0.1': np.mean(residual <= 0.1),
-                'residual_0.2': np.mean(residual <= 0.2),
-                'residual_0.5': np.mean(residual <= 0.5),
-                'residual_1': np.mean(residual <= 1),
+                'residual_0.1': torch.mean((residual <= 0.1).float()),
+                'residual_0.2': torch.mean((residual <= 0.2).float()),
+                'residual_0.5': torch.mean((residual <= 0.5).float()),
+                'residual_1': torch.mean((residual <= 1).float()),
             }
         return metrics

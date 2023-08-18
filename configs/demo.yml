@@ -16,7 +16,7 @@ dataset_configs:
 model_configs:
   name: "f_p_n" # necessary
   dim_in: 3
-  dim_hidden: 128
+  dim_hidden: 4096
   dim_out: 1
 
 loss_configs:
@@ -39,18 +39,17 @@ train_configs:
   name: 'runner'
   device: "cuda"
   workspace: "experiments/demo"
-  data_parallel: false
   enable_tensorboard: true
   num_epochs: 100
-  resume: true
-  # checkpoint: 
+  resume: false
+  # checkpoint: 10
   checkpoint_interval: 1
   summary_freq: 50
   val_interval: 1
 
 test_configs:
   name: "runner"
-  device: "cpu" # necessary
+  device: "cuda"
   split: "val"
   checkpoint: "./experiments/demo/ckpt0050.pth"
   file_path: "./experiments/demo/test.yml"

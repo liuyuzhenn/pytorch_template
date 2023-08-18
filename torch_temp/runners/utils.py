@@ -92,7 +92,10 @@ def save_images(writer, mode, images_dict, global_step):
 def dict_to_str(d, sep='| '):
     out = []
     for k, v in d.items():
-        out.append('{}: {} '.format(k, v))
+        if isinstance(v, float):
+            out.append('{}: {:.4f} '.format(k, v))
+        else:
+            out.append('{}: {} '.format(k, v))
     return sep.join(out)
 
 

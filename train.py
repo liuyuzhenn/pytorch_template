@@ -2,7 +2,7 @@ import argparse
 import numpy as np
 import os
 import yaml
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 import torch
 from torch_temp.utils import train as ttrain
@@ -22,6 +22,7 @@ parser.add_argument(
     'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
     'Note that the quotation marks are necessary and that no white space '
     'is allowed.')
+
 args = parser.parse_args()
 
 with open(args.configs, 'r') as f:
@@ -29,9 +30,12 @@ with open(args.configs, 'r') as f:
     if args.cfg_options is not None:
         update_configs(configs, args.cfg_options)
 
-seed = configs.get('seed',0)
+seed = configs.get('seed', 0)
 np.random.seed(seed)
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
 
-ttrain(configs)
+if int(os.environ.get('LOCAL_RANK', -1)) >= 0:
+    torch.distributed.init_process_group('nccl', init_method='env://')
+
+ttrain(configs, args)
