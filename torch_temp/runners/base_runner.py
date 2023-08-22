@@ -203,7 +203,8 @@ class BaseRunner(metaclass=ABCMeta):
         while self.epoch < train_configs['num_epochs']:
             # Train
             avg_meter = DictAverageMeter()
-            train_loader.sampler.set_epoch(self.epoch)
+            if self.distributed:
+                train_loader.sampler.set_epoch(self.epoch)
             self.model.train()
             for i, data in enumerate(train_loader):
                 t1 = time.time()
