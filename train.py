@@ -1,10 +1,10 @@
 import argparse
 import numpy as np
 import os
-import yaml
 # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 import torch
+from torch_temp import load_configs
 from torch_temp.utils import train as ttrain
 from torch_temp.config import DictAction, update_configs
 
@@ -25,10 +25,9 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-with open(args.configs, 'r') as f:
-    configs = yaml.full_load(f)
-    if args.cfg_options is not None:
-        update_configs(configs, args.cfg_options)
+configs = load_configs(args.configs)
+if args.cfg_options is not None:
+    update_configs(configs, args.cfg_options)
 
 seed = configs.get('seed', 0)
 np.random.seed(seed)
