@@ -172,6 +172,7 @@ class BaseRunner(metaclass=ABCMeta):
             if checkpoint is None:
                 files = glob.glob(os.path.join(workspace, 'ckpt_*.pth'))
                 files = [os.path.basename(f) for f in files]
+                files.sort()
                 if len(files) > 0:
                     checkpoint = files[-1]
                 else:
