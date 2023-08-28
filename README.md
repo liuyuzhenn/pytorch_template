@@ -1,6 +1,6 @@
 # Pytorch Template
 
-A template for pytorch project that is easy to use.
+An easy-to-use template for pytorch project.
 
 ## Requirements
 
@@ -43,11 +43,9 @@ project
 
 ### Example
 
-An example could be found in the `torch_temp` folder.
-
-This project is to train a model to fit the following function: 
+An example could be found in the `torch_temp` folder, which is to train a model to fit the following function: 
 $$x_1^2+e^{x_1+x_2}-2x_3$$
 
-Use `python torch_temp/train.py` to run the demo.
+Use `python train.py` to run the demo.
 
-Or `CUDA_VISIBLE_DEVICES=0,1,2,3 . dist_train.sh 4` for distributed training.
+Or `CUDA_VISIBLE_DEVICES=0,1,2,3 bash dist_train.sh 4` for distributed training.
