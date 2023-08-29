@@ -1,23 +1,14 @@
-from .base_dataset import BaseDataset
 from torch.utils.data import Dataset
 import torch
 
 
-class MyDataset(BaseDataset):
-    def __init__(self, configs):
-        super().__init__(configs)
-
-    def get_dataset(self, split):
-        return _Dataset(split, self.configs)
-
-
-class _Dataset(Dataset):
-    def __init__(self, split, configs) -> None:
+class MyDataset(Dataset):
+    def __init__(self, configs, split) -> None:
         super().__init__()
         self.configs = configs
-        self.size = configs['{}_size'.format(split)]
-        self.min = configs['min']
-        self.max = configs['max']
+        self.size = self.configs['{}_size'.format(split)]
+        self.min = self.configs['min']
+        self.max = self.configs['max']
         self.data_x = []
         self.data_y = []
         for _ in range(self.size):

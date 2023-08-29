@@ -1,18 +1,24 @@
-import importlib
 import torch
 import glob
 import torch.nn as nn
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 import torch.distributed as dist
 import time
 import yaml
 import os
 from torch.utils.tensorboard.writer import SummaryWriter
 from abc import ABCMeta
+from importlib import import_module
 
-from ..losses.base_loss import NoGradientError
+from ..losses.exceptions import NoGradientError
 from ..utils import get_logger
 from .utils import *
+
+
+def _name_to_class(name):
+    return ''.join(n.capitalize() for n in name.split('_'))
 
 
 class BaseRunner(metaclass=ABCMeta):
@@ -41,39 +47,56 @@ class BaseRunner(metaclass=ABCMeta):
             None
         """
 
-    def test(self, test_configs):
+    def test(self):
         """
         Test model after training.
-
-        Args:
-            test_configs: arguments for testing
 
         Returns:
             None
         """
+        test_configs = self.configs['test_configs']
+
         if self.distributed:
             self.device = torch.device(f'cuda:{self.local_rank}')
         else:
             self.device = torch.device(test_configs['device'])
 
-        checkpoint = torch.load(
-            test_configs['checkpoint'], map_location=test_configs['device'])
+        workspace = test_configs['workspace']
+        checkpoint_path = test_configs.get('checkpoint', '')
+        if checkpoint_path != '':
+            if isinstance(checkpoint_path, int):
+                checkpoint_path = 'ckpt_{:0>4}.pth'.format(checkpoint_path)
+            checkpoint_path = os.path.join(workspace, checkpoint_path)
+        else:
+            checkpoint_path = os.path.join(workspace, 'best.pth')
+
+        print(f'Load checkpoint from {checkpoint_path}')
+        checkpoint = torch.load(checkpoint_path,
+                                map_location=test_configs['device'])
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.to(self.device)
 
-        val_data = self.dataset.get_data_loader(test_configs['split'])
+        ####################
+        # setup dataloader #
+        ####################
+        batch_size = self.dataset_configs['batch_size']
+        num_workers = self.dataset_configs['num_workers']
+        test_dataset = self.dataset(self.dataset_configs, 'test')
+        test_loader = DataLoader(test_dataset, batch_size=batch_size,
+                                 shuffle=False, drop_last=True,
+                                 num_workers=num_workers)
 
         self.model.eval()
         # Validation
         avg_meter = DictAverageMeter()
         with torch.no_grad():
             self.model.eval()
-            for data in val_data:
+            for data in test_loader:
                 data = to_device(data, self.device)
                 model_outputs = self.model.forward(data)
 
                 try:
-                    loss = self.loss_term.compute(model_outputs, data)
+                    loss = self.loss_term(model_outputs, data)
                 except NoGradientError:
                     continue
 
@@ -93,8 +116,10 @@ class BaseRunner(metaclass=ABCMeta):
 
                 avg_meter.update(tensor2float(items))
         metrics = avg_meter.mean()
+        metrics['checkpoint'] = checkpoint_path
         with open(test_configs['file_path'], 'w') as f:
             yaml.dump(metrics, f, default_flow_style=False)
+        print(dict_to_str(metrics))
 
     def init_weights(self):
         """Initialize model weight at the beggining of training"""
@@ -103,14 +128,37 @@ class BaseRunner(metaclass=ABCMeta):
         if self.local_rank <= 0:
             logger.info(message)
 
-    def __init__(self, model, dataset, loss):
-        self.model = model
-        self.dataset = dataset
-        self.loss_term = loss
+    def __init__(self, configs):
+        project = configs.get('project', 'torch_temp')
+        self.configs = configs
+
+        self.confgs = configs
+        self.model_configs = configs['model_configs']
+        self.dataset_configs = configs['dataset_configs']
+        self.loss_configs = configs['loss_configs']
+
+        model = import_module('.models.{}'.format(
+            self.model_configs['name']), project)
+        dataset = import_module('.datasets.{}'.format(
+            self.dataset_configs['name']), project)
+        loss = import_module('.losses.{}'.format(
+            self.loss_configs['name']), project)
+
+        self.model = getattr(model, _name_to_class(
+            self.model_configs['name']))(configs)
+        # class
+        self.dataset = getattr(dataset, _name_to_class(
+            self.dataset_configs['name']))
+        self.loss_term = getattr(loss, _name_to_class(
+            self.loss_configs['name']))(configs)
+
         self.local_rank = int(os.environ.get('LOCAL_RANK', -1))
         self.distributed = self.local_rank >= 0
 
-    def train(self, train_configs, optimizer_configs):
+    def train(self):
+        optimizer_configs = self.configs['optimizer_configs']
+        train_configs = self.configs['train_configs']
+
         # device
         workspace = train_configs['workspace']
         self.logger = get_logger(workspace)
@@ -133,7 +181,7 @@ class BaseRunner(metaclass=ABCMeta):
         ####################
         # set up optimizer #
         ####################
-        optim = importlib.import_module("torch.optim")
+        optim = import_module("torch.optim")
         name = optimizer_configs['name']
         params = optimizer_configs.copy()
         params.pop('name')
@@ -149,7 +197,7 @@ class BaseRunner(metaclass=ABCMeta):
             self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
                 self.optimizer, lambda epoch: 1)
         else:
-            lib_schedulers = importlib.import_module(
+            lib_schedulers = import_module(
                 'torch.optim.lr_scheduler')
             name_scheduler = scheduler_configs['name']
             self.params = scheduler_configs.copy()
@@ -165,7 +213,6 @@ class BaseRunner(metaclass=ABCMeta):
         self.epoch = 0
         self.loss_val_min = np.inf
         self.init_weights()
-
         resume = train_configs.get('resume', False)
         if resume:
             checkpoint = train_configs.get('checkpoint', None)
@@ -186,11 +233,27 @@ class BaseRunner(metaclass=ABCMeta):
                           "Loading checkpoint from {}.".format(checkpoint))
                 self.load(checkpoint)
 
-        ##################
-        # train/val data #
-        ##################
-        train_loader = self.dataset.get_data_loader('train')
-        val_loader = self.dataset.get_data_loader('val')
+        ####################
+        # setup dataloader #
+        ####################
+        batch_size = self.dataset_configs['batch_size']
+        num_workers = self.dataset_configs['num_workers']
+        train_dataset = self.dataset(self.dataset_configs, 'train')
+        val_dataset = self.dataset(self.dataset_configs, 'val')
+        if self.distributed:
+            train_sampler = DistributedSampler(train_dataset, shuffle=True)
+            val_sampler = DistributedSampler(val_dataset, shuffle=False)
+            train_loader = DataLoader(train_dataset,
+                                      batch_size=batch_size, sampler=train_sampler)
+            val_loader = DataLoader(val_dataset,
+                                    batch_size=batch_size, sampler=val_sampler)
+        else:
+            train_loader = DataLoader(train_dataset, batch_size=batch_size,
+                                      shuffle=True, drop_last=True,
+                                      num_workers=num_workers)
+            val_loader = DataLoader(val_dataset, batch_size=batch_size,
+                                    shuffle=False, drop_last=True,
+                                    num_workers=num_workers)
 
         ##########################
         # initialize tensorboard #
@@ -213,7 +276,7 @@ class BaseRunner(metaclass=ABCMeta):
                 self.optimizer.zero_grad()
                 model_outputs = self.model.forward(data)
                 try:
-                    loss = self.loss_term.compute(model_outputs, data)
+                    loss = self.loss_term(model_outputs, data)
                 except NoGradientError:
                     self.info(self.logger, "[Train] [Epoch {}/{}] [Iteration {}/{}] {}"
                               .format(self.epoch+1, train_configs['num_epochs'], i+1, len(train_loader), 'No Gradient!'))
@@ -229,7 +292,6 @@ class BaseRunner(metaclass=ABCMeta):
                 loss.backward()
                 self.optimizer.step()
                 t2 = time.time()
-
 
                 global_step = len(train_loader)*self.epoch+i
 
@@ -278,6 +340,8 @@ class BaseRunner(metaclass=ABCMeta):
             # Validation
             if (self.epoch+1) % train_configs.get('val_interval', 1) == 0:
                 avg_meter = DictAverageMeter()
+                if self.distributed:
+                    val_loader.sampler.set_epoch(self.epoch)
                 with torch.no_grad():
                     self.model.eval()
                     for i, data in enumerate(val_loader):
@@ -286,7 +350,7 @@ class BaseRunner(metaclass=ABCMeta):
 
                         t1 = time.time()
                         try:
-                            loss = self.loss_term.compute(model_outputs, data)
+                            loss = self.loss_term(model_outputs, data)
                         except NoGradientError:
                             self.info(self.logger, "[Val] [Epoch {}/{}] [Iteration {}/{}] {}"
                                       .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_loader), 'No Gradient!'))
@@ -296,7 +360,8 @@ class BaseRunner(metaclass=ABCMeta):
                         if isinstance(loss, tuple):
                             loss, items = loss
                             if self.distributed:
-                                _ = [dist.all_reduce(x) for x in items.values()]
+                                _ = [dist.all_reduce(x)
+                                     for x in items.values()]
                                 items = {k: v/world_size for k,
                                          v in items.items()}
                                 dist.all_reduce(loss)
@@ -307,7 +372,6 @@ class BaseRunner(metaclass=ABCMeta):
                         self.info(self.logger, "[Val] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s"
                                   .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_loader), float(loss), t2-t1))
                         global_step = len(val_loader)*self.epoch+i+1
-
 
                         if items is not None:
                             items.update({'loss': float(loss)})

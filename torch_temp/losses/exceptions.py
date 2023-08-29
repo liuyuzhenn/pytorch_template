@@ -1,0 +1,3 @@
+class NoGradientError(Exception):
+    pass
+

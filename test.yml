@@ -1,0 +1,7 @@
+checkpoint: experiments/demo/ckpt_0005.pth
+loss: 0.31344982609152794
+residual: 0.31344982609152794
+residual_0.1: 0.2841796875
+residual_0.2: 0.515625
+residual_0.5: 0.880859375
+residual_1: 0.97265625

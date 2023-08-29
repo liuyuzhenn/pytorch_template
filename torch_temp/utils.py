@@ -22,7 +22,7 @@ def get_logger(logdir):
     return logger
 
 
-def train(configs, args):
+def train(configs):
     # save the configutation in the log directory
     if configs.get('save_configs', True):
         workspace = configs['train_configs']['workspace']
@@ -32,33 +32,15 @@ def train(configs, args):
             yaml.dump(configs, f, default_style=False)
 
     project = configs.get('project', 'torch_temp')
-
-    model_configs = configs['model_configs']
-    dataset_configs = configs['dataset_configs']
-    loss_configs = configs['loss_configs']
-    optimizer_configs = configs['optimizer_configs']
     train_configs = configs['train_configs']
 
-    model = import_module('.models.{}'.format(
-        model_configs['name']), project)
-    dataset = import_module('.datasets.{}'.format(
-        dataset_configs['name']), project)
-    loss = import_module('.losses.{}'.format(
-        loss_configs['name']), project)
     runner = import_module('.runners.{}'.format(
         train_configs['name']), project)
-
-
-    model = getattr(model, _name_to_class(
-        model_configs['name']))(model_configs)
-    dataset = getattr(dataset, _name_to_class(
-        dataset_configs['name']))(dataset_configs)
-    loss = getattr(loss, _name_to_class(loss_configs['name']))(loss_configs)
     runner = getattr(runner, _name_to_class(
-        train_configs['name']))(model, dataset, loss)
+        train_configs['name']))(configs)
 
     try:
-        runner.train(train_configs, optimizer_configs)
+        runner.train()
     except KeyboardInterrupt:
         runner.logger.info(
             'Got Keyboard Interuption, saving model and closing.')
@@ -67,27 +49,11 @@ def train(configs, args):
 
 def test(configs):
     project = configs.get('project', 'torch_temp')
-
-    model_configs = configs['model_configs']
-    dataset_configs = configs['dataset_configs']
-    loss_configs = configs['loss_configs']
     test_configs = configs['test_configs']
 
-    model = import_module('.models.{}'.format(
-        model_configs['name']), project)
-    dataset = import_module('.datasets.{}'.format(
-        dataset_configs['name']), project)
-    loss = import_module('.losses.{}'.format(
-        loss_configs['name']), project)
     runner = import_module('.runners.{}'.format(
         test_configs['name']), project)
-
-    model = getattr(model, _name_to_class(
-        model_configs['name']))(model_configs)
-    dataset = getattr(dataset, _name_to_class(
-        dataset_configs['name']))(dataset_configs)
-    loss = getattr(loss, _name_to_class(loss_configs['name']))(loss_configs)
     runner = getattr(runner, _name_to_class(
-        test_configs['name']))(model, dataset, loss)
+        test_configs['name']))(configs)
 
-    runner.test(test_configs)
+    runner.test()

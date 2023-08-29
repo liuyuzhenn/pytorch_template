@@ -4,8 +4,8 @@ import torch
 
 
 class Runner(BaseRunner):
-    def __init__(self, model, dataset, loss):
-        super().__init__(model, dataset, loss)
+    def __init__(self, configs):
+        super().__init__(configs)
 
     def _metrics(self, outputs_model, inputs_data, mode='train') -> dict:
         with torch.no_grad():

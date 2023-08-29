@@ -9,12 +9,13 @@ dataset_configs:
 
   train_size: 4096
   noise: 1 # std of gaussian noise
-  val_size: 4096
+  val_size: 2048
+  test_size: 1024
   min: -2
   max: 2
 
 model_configs:
-  name: "f_p_n" # necessary
+  name: "my_model" # necessary
   dim_in: 3
   dim_hidden: 4096
   dim_out: 1
@@ -41,7 +42,7 @@ train_configs:
   workspace: "experiments/demo"
   enable_tensorboard: true
   num_epochs: 100
-  resume: false
+  resume: true
   # checkpoint: 10
   checkpoint_interval: 1
   summary_freq: 50
@@ -51,5 +52,6 @@ test_configs:
   name: "runner"
   device: "cuda"
   split: "val"
-  checkpoint: "./experiments/demo/ckpt0050.pth"
-  file_path: "./experiments/demo/test.yml"
+  workspace: "experiments/demo"
+  # checkpoint: "ckpt_0020.pth"
+  file_path: "test.yml"

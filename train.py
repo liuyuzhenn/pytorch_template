@@ -37,4 +37,4 @@ torch.cuda.manual_seed_all(seed)
 if int(os.environ.get('LOCAL_RANK', -1)) >= 0:
     torch.distributed.init_process_group('nccl', init_method='env://')
 
-ttrain(configs, args)
+ttrain(configs)
