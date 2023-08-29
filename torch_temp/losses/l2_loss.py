@@ -9,7 +9,7 @@ class L2Loss(nn.Module):
         super().__init__()
         self.configs = configs
 
-    def forward(self, outputs_model, inputs_data):
+    def forward(self, outputs_model, inputs_data, mode='train'):
         y_pred = outputs_model['y']
         y_gt = inputs_data['y']
         loss = torch.norm(y_pred-y_gt, p=2, dim=-1).mean()

@@ -87,16 +87,16 @@ class BaseRunner(metaclass=ABCMeta):
                                  num_workers=num_workers)
 
         self.model.eval()
-        # Validation
+        # test
         avg_meter = DictAverageMeter()
         with torch.no_grad():
             self.model.eval()
             for data in test_loader:
                 data = to_device(data, self.device)
-                model_outputs = self.model.forward(data)
+                model_outputs = self.model(data, mode='test')
 
                 try:
-                    loss = self.loss_term(model_outputs, data)
+                    loss = self.loss_term(model_outputs, data, mode='test')
                 except NoGradientError:
                     continue
 
@@ -276,7 +276,7 @@ class BaseRunner(metaclass=ABCMeta):
                 self.optimizer.zero_grad()
                 model_outputs = self.model.forward(data)
                 try:
-                    loss = self.loss_term(model_outputs, data)
+                    loss = self.loss_term(model_outputs, data, mode='train')
                 except NoGradientError:
                     self.info(self.logger, "[Train] [Epoch {}/{}] [Iteration {}/{}] {}"
                               .format(self.epoch+1, train_configs['num_epochs'], i+1, len(train_loader), 'No Gradient!'))
@@ -346,11 +346,11 @@ class BaseRunner(metaclass=ABCMeta):
                     self.model.eval()
                     for i, data in enumerate(val_loader):
                         data = to_device(data, self.device)
-                        model_outputs = self.model.forward(data)
+                        model_outputs = self.model(data, mode='val')
 
                         t1 = time.time()
                         try:
-                            loss = self.loss_term(model_outputs, data)
+                            loss = self.loss_term(model_outputs, data, mode='val')
                         except NoGradientError:
                             self.info(self.logger, "[Val] [Epoch {}/{}] [Iteration {}/{}] {}"
                                       .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_loader), 'No Gradient!'))
