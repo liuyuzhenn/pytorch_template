@@ -1,3 +1,4 @@
+import random
 import argparse
 import numpy as np
 import os
@@ -30,6 +31,7 @@ if args.cfg_options is not None:
     update_configs(configs, args.cfg_options)
 
 seed = configs.get('seed', 0)
+random.seed(seed)
 np.random.seed(seed)
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)

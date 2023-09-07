@@ -73,6 +73,7 @@ class BaseRunner(metaclass=ABCMeta):
         print(f'Load checkpoint from {checkpoint_path}')
         checkpoint = torch.load(checkpoint_path,
                                 map_location=test_configs['device'])
+        print('Epoch: {}'.format(checkpoint['epoch']))
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.to(self.device)
 
@@ -117,6 +118,8 @@ class BaseRunner(metaclass=ABCMeta):
                 avg_meter.update(tensor2float(items))
         metrics = avg_meter.mean()
         metrics['checkpoint'] = checkpoint_path
+        metrics['epoch'] = checkpoint['epoch']
+        print(dict_to_str(metrics, sep=', '))
         with open(test_configs['file_path'], 'w') as f:
             yaml.dump(metrics, f, default_flow_style=False)
         print(dict_to_str(metrics))
