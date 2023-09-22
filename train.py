@@ -5,9 +5,9 @@ import os
 # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 import torch
-from torch_temp import load_configs
-from torch_temp.utils import train as ttrain
-from torch_temp.config import DictAction, update_configs
+from src import load_configs
+from src.utils import train as ttrain
+from src.config import DictAction, update_configs
 
 
 parser = argparse.ArgumentParser()

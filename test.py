@@ -3,9 +3,9 @@ import os
 import yaml
 
 import torch
-from torch_temp import load_configs
-from torch_temp.utils import test as ttest
-from torch_temp.config import DictAction, update_configs
+from src import load_configs
+from src.utils import test as ttest
+from src.config import DictAction, update_configs
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--configs', type=str, default='./configs/demo.yml')

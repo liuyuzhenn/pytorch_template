@@ -132,7 +132,7 @@ class BaseRunner(metaclass=ABCMeta):
             logger.info(message)
 
     def __init__(self, configs):
-        project = configs.get('project', 'torch_temp')
+        project = configs.get('project', 'src')
         self.configs = configs
 
         self.confgs = configs

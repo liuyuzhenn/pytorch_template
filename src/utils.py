@@ -9,7 +9,7 @@ def _name_to_class(name):
 
 
 def get_logger(logdir):
-    logger = logging.getLogger('torch_temp')
+    logger = logging.getLogger('torch_template')
     handler = logging.FileHandler(os.path.join(logdir, 'info.log'), 'w')
     stream_handler = logging.StreamHandler()
     fmt = logging.Formatter(fmt='[%(asctime)s] %(message)s',
@@ -31,7 +31,7 @@ def train(configs):
         with open(os.path.join(workspace, 'configs.yml'), 'w') as f:
             yaml.dump(configs, f, default_style=False)
 
-    project = configs.get('project', 'torch_temp')
+    project = configs.get('project', 'src')
     train_configs = configs['train_configs']
 
     runner = import_module('.runners.{}'.format(
@@ -48,7 +48,7 @@ def train(configs):
 
 
 def test(configs):
-    project = configs.get('project', 'torch_temp')
+    project = configs.get('project', 'src')
     test_configs = configs['test_configs']
 
     runner = import_module('.runners.{}'.format(
