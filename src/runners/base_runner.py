@@ -318,7 +318,7 @@ class BaseRunner(metaclass=ABCMeta):
                 # save in average meter
                 avg_meter.update(tensor2float(items))
 
-                if (global_step+1) % train_configs['summary_freq'] == 0:
+                if global_step % train_configs['summary_freq'] == 0:
                     if self.local_rank <= 0:
                         images = self._get_images(model_outputs, data)
                         save_scalars(writer, 'train', items, global_step)
@@ -327,7 +327,7 @@ class BaseRunner(metaclass=ABCMeta):
 
             if writer is not None and avg_meter.count != 0 and self.local_rank <= 0:
                 save_scalars(writer, 'train_avg',
-                             avg_meter.mean(), self.epoch+1)
+                             avg_meter.mean(), self.epoch)
 
                 self.info(self.logger, "[Train] [Epoch {}/{}] {}".format(self.epoch+1,
                                                                          train_configs['num_epochs'], dict_to_str(avg_meter.mean())))
@@ -374,7 +374,7 @@ class BaseRunner(metaclass=ABCMeta):
 
                         self.info(self.logger, "[Val] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s"
                                   .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_loader), float(loss), t2-t1))
-                        global_step = len(val_loader)*self.epoch+i+1
+                        global_step = len(val_loader)*self.epoch+i
 
                         if items is not None:
                             items.update({'loss': float(loss)})
@@ -394,7 +394,7 @@ class BaseRunner(metaclass=ABCMeta):
                                                                                train_configs['num_epochs'], dict_to_str(meter_mean)))
                         if writer is not None:
                             save_scalars(
-                                writer, 'val', meter_mean, self.epoch+1)
+                                writer, 'val', meter_mean, self.epoch)
 
                         loss_current = meter_mean['loss']
                         if loss_current < self.loss_val_min:
