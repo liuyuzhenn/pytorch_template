@@ -18,18 +18,10 @@ def recursive(func):
 
 @recursive
 def to_device(sample, device):
-    if device == 'cpu':
-        if isinstance(sample, torch.Tensor):
-            return sample.cpu()
-        else:
-            return sample
-    elif device == 'cuda':
-        if isinstance(sample, torch.Tensor):
-            return sample.cuda()
-        else:
-            return sample
-    else:
+    if isinstance(sample, torch.Tensor):
         return sample.to(device)
+    else:
+        return sample
 
 
 @recursive
