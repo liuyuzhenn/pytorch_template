@@ -29,7 +29,7 @@ def train(configs):
         if not os.path.isdir(workspace):
             os.makedirs(workspace)
         with open(os.path.join(workspace, 'configs.yml'), 'w') as f:
-            yaml.dump(configs, f, default_style=False)
+            yaml.dump(configs, f, default_style=False, sort_keys=False)
 
     project = configs.get('project', 'src')
     train_configs = configs['train_configs']

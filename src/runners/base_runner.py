@@ -121,7 +121,7 @@ class BaseRunner(metaclass=ABCMeta):
         metrics['epoch'] = checkpoint['epoch']
         print(dict_to_str(metrics, sep=', '))
         with open(test_configs['file_path'], 'w') as f:
-            yaml.dump(metrics, f, default_flow_style=False)
+            yaml.dump(metrics, f, default_flow_style=False, sort_keys=False)
         print(dict_to_str(metrics))
 
     def init_weights(self):
