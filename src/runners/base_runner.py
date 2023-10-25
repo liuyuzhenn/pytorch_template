@@ -214,7 +214,7 @@ class BaseRunner(metaclass=ABCMeta):
         # continue from the checkpoint #
         ################################
         self.epoch = 0
-        self.loss_val_min = np.inf
+        self.metric_val_min = np.inf
         self.init_weights()
         resume = train_configs.get('resume', False)
         if resume:
@@ -396,9 +396,9 @@ class BaseRunner(metaclass=ABCMeta):
                             save_scalars(
                                 writer, 'val', meter_mean, self.epoch)
 
-                        loss_current = meter_mean['loss']
-                        if loss_current < self.loss_val_min:
-                            self.loss_val_min = loss_current
+                        metric_current = meter_mean[train_configs.get('metric_val', 'loss')]
+                        if metric_current < self.metric_val_min:
+                            self.metric_val_min = metric_current
                             self.info(self.logger,
                                       "Update best ckeckpoint, saved as {}".format(ckpt_best))
                             self.save(workspace, ckpt_best)
@@ -414,7 +414,7 @@ class BaseRunner(metaclass=ABCMeta):
             'model_state_dict': self.model.module.state_dict() if self.distributed else self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'lr_scheduler_state_dict': self.lr_scheduler.state_dict(),
-            'loss_val_min': self.loss_val_min
+            'matric_val_min': self.metric_val_min
         }, save_path)
 
     def load(self, checkpoint_path, model_only=False):
@@ -428,7 +428,7 @@ class BaseRunner(metaclass=ABCMeta):
             self.lr_scheduler.load_state_dict(
                 checkpoint['lr_scheduler_state_dict'])
             self.epoch = checkpoint['epoch']
-            self.loss_val_min = checkpoint['loss_val_min']
+            self.metric_val_min = checkpoint['loss_val_min']
 
             for g in self.optimizer.param_groups:
                 self.info(self.logger, "Adjusting learning rate of group 0 to {}.".format(

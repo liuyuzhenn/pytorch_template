@@ -39,10 +39,11 @@ optimizer_configs:
 train_configs:
   name: 'runner'
   device: "cuda"
+  metric_val: 'residual_0.1'
   workspace: "experiments/demo"
   enable_tensorboard: true
   num_epochs: 100
-  resume: true
+  resume: false
   # checkpoint: 10
   checkpoint_interval: 1
   summary_freq: 50
