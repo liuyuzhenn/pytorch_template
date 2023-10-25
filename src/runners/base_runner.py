@@ -348,17 +348,17 @@ class BaseRunner(metaclass=ABCMeta):
                 with torch.no_grad():
                     self.model.eval()
                     for i, data in enumerate(val_loader):
+                        t1 = time.time()
                         data = to_device(data, self.device)
                         model_outputs = self.model(data, mode='val')
+                        t2 = time.time()
 
-                        t1 = time.time()
                         try:
                             loss = self.loss_term(model_outputs, data, mode='val')
                         except NoGradientError:
                             self.info(self.logger, "[Val] [Epoch {}/{}] [Iteration {}/{}] {}"
                                       .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_loader), 'No Gradient!'))
                             continue
-                        t2 = time.time()
 
                         if isinstance(loss, tuple):
                             loss, items = loss
