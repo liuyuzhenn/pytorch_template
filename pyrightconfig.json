@@ -1,0 +1,8 @@
+{
+	"exclude": [
+		"./data", 
+		"./experiment*",
+		"./evaluation*", 
+		"./images", 
+	]
+}
