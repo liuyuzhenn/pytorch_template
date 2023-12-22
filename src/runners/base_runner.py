@@ -414,7 +414,7 @@ class BaseRunner(metaclass=ABCMeta):
             'model_state_dict': self.model.module.state_dict() if self.distributed else self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'lr_scheduler_state_dict': self.lr_scheduler.state_dict(),
-            'matric_val_min': self.metric_val_min
+            'metric_val_min': self.metric_val_min
         }, save_path)
 
     def load(self, checkpoint_path, model_only=False):
@@ -428,7 +428,7 @@ class BaseRunner(metaclass=ABCMeta):
             self.lr_scheduler.load_state_dict(
                 checkpoint['lr_scheduler_state_dict'])
             self.epoch = checkpoint['epoch']
-            self.metric_val_min = checkpoint['loss_val_min']
+            self.metric_val_min = checkpoint['metric_val_min']
 
             for g in self.optimizer.param_groups:
                 self.info(self.logger, "Adjusting learning rate of group 0 to {}.".format(
