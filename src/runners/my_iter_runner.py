@@ -1,9 +1,9 @@
-from .base_runner import BaseRunner
+from .iter_runner import IterRunner
 import numpy as np
 import torch
 
 
-class Runner(BaseRunner):
+class MyIterRunner(IterRunner):
     def __init__(self, configs):
         super().__init__(configs)
 
