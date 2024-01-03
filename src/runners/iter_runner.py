@@ -334,7 +334,7 @@ class IterRunner(metaclass=ABCMeta):
 
                 # Validation
                 if (self.step+1) % train_configs.get('val_interval', 10000) == 0:
-                    avg_meter = DictAverageMeter()
+                    avg_meter_val = DictAverageMeter()
                     if self.distributed:
                         val_loader.sampler.set_epoch(self.step)
                     with torch.no_grad():
@@ -377,10 +377,10 @@ class IterRunner(metaclass=ABCMeta):
                             if metrics is not None:
                                 items.update(metrics)
 
-                            avg_meter.update(tensor2float(items))
+                            avg_meter_val.update(tensor2float(items))
 
-                        if avg_meter.count != 0:
-                            meter_mean = avg_meter.mean()
+                        if avg_meter_val.count != 0:
+                            meter_mean = avg_meter_val.mean()
                             self.info(self.logger, "[Val] [Iteration {}/{}] {}".format(self.step+1,
                                                                                    train_configs['num_steps'], dict_to_str(meter_mean)))
                             if writer is not None:
