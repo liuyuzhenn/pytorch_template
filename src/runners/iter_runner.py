@@ -395,6 +395,8 @@ class IterRunner(metaclass=ABCMeta):
                                 self.save(workspace, ckpt_best)
 
                 self.step += 1
+                if self.step==train_configs['num_steps']:
+                    break
 
             if writer is not None and avg_meter.count != 0 and self.local_rank <= 0:
                 save_scalars(writer, 'train_avg',
