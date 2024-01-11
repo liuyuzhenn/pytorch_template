@@ -385,7 +385,7 @@ class IterRunner(metaclass=ABCMeta):
                                                                                    train_configs['num_steps'], dict_to_str(meter_mean)))
                             if writer is not None:
                                 save_scalars(
-                                    writer, 'val', meter_mean, self.step)
+                                    writer, 'val', meter_mean, self.step+1)
 
                             metric_current = meter_mean[train_configs.get('metric_val', 'loss')]
                             if metric_current < self.metric_val_min:
