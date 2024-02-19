@@ -37,7 +37,8 @@ optimizer_configs:
   #   lr_lambda: "lambda p: 0.99**p"
     
 train_configs:
-  name: 'my_epoch_runner'
+  base: epoch_runner
+  name: my_runner
   device: "cuda"
   metric_val: 'residual_0.1'
   workspace: "experiments/demo"

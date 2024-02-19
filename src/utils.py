@@ -8,6 +8,10 @@ def _name_to_class(name):
     return ''.join(n.capitalize() for n in name.split('_'))
 
 
+def create_runner(base_runner, child_runner):
+    return type(child_runner.__name__, (base_runner,), dict(child_runner.__dict__))
+
+
 def get_logger(logdir):
     logger = logging.getLogger('torch_template')
     handler = logging.FileHandler(os.path.join(logdir, 'info.log'), 'w')
@@ -34,10 +38,15 @@ def train(configs):
     project = configs.get('project', 'src')
     train_configs = configs['train_configs']
 
-    runner = import_module('.runners.{}'.format(
+    base_runner = import_module('.runners.{}'.format(
+        train_configs['base']), project)
+    base_runner = getattr(base_runner, _name_to_class(
+        train_configs['base']))
+    child_runner = import_module('.runners.{}'.format(
         train_configs['name']), project)
-    runner = getattr(runner, _name_to_class(
-        train_configs['name']))(configs)
+    child_runner = getattr(child_runner, _name_to_class(
+        train_configs['name']))
+    runner = create_runner(base_runner, child_runner)(configs)
 
     try:
         runner.train()

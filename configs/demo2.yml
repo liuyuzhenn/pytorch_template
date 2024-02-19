@@ -36,7 +36,8 @@ optimizer_configs:
     total_steps: 30000
     
 train_configs:
-  name: 'my_iter_runner'
+  base: iter_runner
+  name: my_runner
   device: "cuda"
   metric_val: 'residual_0.1'
   workspace: "experiments/demo2"
