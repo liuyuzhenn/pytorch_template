@@ -266,7 +266,7 @@ class IterRunner(metaclass=ABCMeta):
         ##########################
         # initialize tensorboard #
         ##########################
-        if train_configs.get('enable_tensorboard', True):
+        if train_configs.get('enable_tensorboard', True) and self.local_rank <= 0:
             writer = SummaryWriter(workspace)
         else:
             writer = None
@@ -322,12 +322,11 @@ class IterRunner(metaclass=ABCMeta):
                 # save in average meter
                 avg_meter.update(tensor2float(items))
 
-                if self.step % train_configs['summary_freq'] == 0:
-                    if self.local_rank <= 0:
-                        images = self._get_images(model_outputs, data)
-                        save_scalars(writer, 'train', items, self.step)
-                        if images is not None:
-                            save_images(writer, 'train', images, self.step)
+                if self.step % train_configs['summary_freq'] == 0 and writer is not None:
+                    save_scalars(writer, 'train', items, self.step)
+                    images = self._get_images(model_outputs, data)
+                    if images is not None:
+                        save_images(writer, 'train', images, self.step)
 
                 if (self.step+1) % train_configs['checkpoint_interval'] == 0 and self.local_rank <= 0:
                     self.save(workspace)
@@ -398,14 +397,13 @@ class IterRunner(metaclass=ABCMeta):
                 if self.step==train_configs['num_steps']:
                     break
 
-            if writer is not None and avg_meter.count != 0 and self.local_rank <= 0:
+            if writer is not None and avg_meter.count != 0:
                 save_scalars(writer, 'train_avg',
                              avg_meter.mean(), self.step//len(train_loader))
 
+            if avg_meter.count != 0:
                 self.info(self.logger, "[Train Average] [Epoch {}] {}".format(self.step//len(train_loader),
                                                                          dict_to_str(avg_meter.mean())))
-
-
 
 
     def save(self, out_dir, ckpt_name=None):

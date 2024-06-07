@@ -266,7 +266,7 @@ class EpochRunner(metaclass=ABCMeta):
         ##########################
         # initialize tensorboard #
         ##########################
-        if train_configs.get('enable_tensorboard', True):
+        if train_configs.get('enable_tensorboard', True) and self.local_rank <= 0:
             writer = SummaryWriter(workspace)
         else:
             writer = None
@@ -323,17 +323,17 @@ class EpochRunner(metaclass=ABCMeta):
                 # save in average meter
                 avg_meter.update(tensor2float(items))
 
-                if global_step % train_configs['summary_freq'] == 0:
-                    if self.local_rank <= 0:
-                        images = self._get_images(model_outputs, data)
-                        save_scalars(writer, 'train', items, global_step)
-                        if images is not None:
-                            save_images(writer, 'train', images, global_step)
+                if global_step % train_configs['summary_freq'] == 0 and self.local_rank <= 0:
+                    save_scalars(writer, 'train', items, global_step)
+                    images = self._get_images(model_outputs, data)
+                    if images is not None:
+                        save_images(writer, 'train', images, global_step)
 
-            if writer is not None and avg_meter.count != 0 and self.local_rank <= 0:
+            if writer is not None and avg_meter.count != 0:
                 save_scalars(writer, 'train_avg',
                              avg_meter.mean(), self.epoch)
 
+            if avg_meter.count != 0:
                 self.info(self.logger, "[Train] [Epoch {}/{}] {}".format(self.epoch+1,
                                                                          train_configs['num_epochs'], dict_to_str(avg_meter.mean())))
             self.lr_scheduler.step()
