@@ -55,7 +55,7 @@ class IterRunner(metaclass=ABCMeta):
         Returns:
             None
         """
-        test_configs = self.configs.test_configs
+        test_configs = self.configs.test
 
         if self.distributed:
             self.device = torch.device(f'cuda:{self.local_rank}')
@@ -82,7 +82,6 @@ class IterRunner(metaclass=ABCMeta):
         else:
             metrics['step'] = checkpoint['step']
             print('Step: {}'.format(checkpoint['step']))
-        metrics['checkpoint'] = checkpoint_path
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.to(self.device)
 
@@ -91,7 +90,7 @@ class IterRunner(metaclass=ABCMeta):
         ####################
         batch_size = self.dataset_configs.batch_size
         num_workers = self.dataset_configs.num_workers
-        test_dataset = self.dataset(self.dataset_configs, 'test')
+        test_dataset = self.dataset(self.configs, 'test')
         test_loader = DataLoader(test_dataset, batch_size=batch_size,
                                  shuffle=False, drop_last=True,
                                  num_workers=num_workers)
@@ -126,9 +125,11 @@ class IterRunner(metaclass=ABCMeta):
 
                 avg_meter.update(tensor2float(items))
         metrics.update(avg_meter.mean())
+        metrics['checkpoint'] = checkpoint_path
         with open(test_configs.file_path, 'w') as f:
             yaml.dump(metrics, f, default_flow_style=False, sort_keys=False)
         print(dict_to_str(metrics))
+        print(f'Results saved to: {test_configs.file_path}')
 
     def init_weights(self):
         """Initialize model weight at the beggining of training"""

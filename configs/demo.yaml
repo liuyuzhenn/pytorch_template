@@ -18,8 +18,8 @@ hydra:
 
 seed: 0
 
-train:
-  workspace: experiments/demo-bs${dataset.batch_size}-lr${optimizer.lr}
-
 model:
   dim_hidden: 1024
+
+train:
+  workspace: experiments/demo-bs${dataset.batch_size}-lr${optimizer.lr}

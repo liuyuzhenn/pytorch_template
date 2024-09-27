@@ -25,3 +25,6 @@ model:
 
 train:
   workspace: experiments/demo-iter-bs${dataset.batch_size}-lr${optimizer.lr}
+
+test:
+  checkpoint: 10000
