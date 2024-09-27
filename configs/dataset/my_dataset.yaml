@@ -1,0 +1,10 @@
+name: "my_dataset"
+batch_size: 128 # necessary
+num_workers: 1
+
+train_size: 4096
+noise: 1 # std of gaussian noise
+val_size: 2048
+test_size: 1024
+min: -2
+max: 2

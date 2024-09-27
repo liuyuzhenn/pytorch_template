@@ -5,10 +5,10 @@ import torch
 class MyDataset(Dataset):
     def __init__(self, configs, split) -> None:
         super().__init__()
-        self.configs = configs
+        self.configs = configs.dataset
         self.size = self.configs['{}_size'.format(split)]
-        self.min = self.configs['min']
-        self.max = self.configs['max']
+        self.min = self.configs.min
+        self.max = self.configs.max
         self.data_x = []
         self.data_y = []
         for _ in range(self.size):

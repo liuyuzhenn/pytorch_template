@@ -1,0 +1,11 @@
+name: 'my_iter_runner'
+device: "cuda"
+metric_val: 'residual_0.1'
+workspace: "experiments/demo2"
+enable_tensorboard: true
+num_steps: 30000
+resume: false
+checkpoint: 2000
+checkpoint_interval: 2000
+summary_freq: 50
+val_interval: 2000

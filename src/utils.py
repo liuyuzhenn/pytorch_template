@@ -1,7 +1,7 @@
-import yaml
 import os
 import logging
 from importlib import import_module
+from omegaconf import OmegaConf
 
 
 def _name_to_class(name):
@@ -12,7 +12,7 @@ def get_logger(logdir):
     logger = logging.getLogger('torch_template')
     handler = logging.FileHandler(os.path.join(logdir, 'info.log'), 'w')
     stream_handler = logging.StreamHandler()
-    fmt = logging.Formatter(fmt='[%(asctime)s] %(message)s',
+    fmt = logging.Formatter(fmt='[%(asctime)s] - %(message)s',
                             datefmt='%Y/%m/%d %H:%M:%S')
     handler.setFormatter(fmt)
     stream_handler.setFormatter(fmt)
@@ -24,15 +24,14 @@ def get_logger(logdir):
 
 def train(configs):
     # save the configutation in the log directory
-    if configs.get('save_configs', True):
-        workspace = configs['train_configs']['workspace']
-        if not os.path.isdir(workspace):
-            os.makedirs(workspace)
-        with open(os.path.join(workspace, 'configs.yml'), 'w') as f:
-            yaml.dump(configs, f, default_style=False, sort_keys=False)
+    OmegaConf.resolve(configs)
+    train_configs = configs.train
+    workspace = train_configs.workspace
+    os.makedirs(workspace, exist_ok=True)
+    path = os.path.join(workspace, 'configs.yml')
+    OmegaConf.save(configs, path)
 
     project = configs.get('project', 'src')
-    train_configs = configs['train_configs']
 
     runner = import_module('.runners.{}'.format(
         train_configs['name']), project)
@@ -49,11 +48,11 @@ def train(configs):
 
 def test(configs):
     project = configs.get('project', 'src')
-    test_configs = configs['test_configs']
+    test_configs = configs.test
 
     runner = import_module('.runners.{}'.format(
-        test_configs['name']), project)
+        test_configs.name), project)
     runner = getattr(runner, _name_to_class(
-        test_configs['name']))(configs)
+        test_configs.name))(configs)
 
     runner.test()

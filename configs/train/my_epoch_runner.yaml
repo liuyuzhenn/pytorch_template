@@ -1,0 +1,11 @@
+name: 'my_epoch_runner'
+device: "cuda"
+metric_val: 'residual_0.1'
+workspace: experiments/demo-bs${dataset.batch_size}-lr${optimizer.lr}
+enable_tensorboard: true
+num_epochs: 100
+resume: false
+# checkpoint: 10
+checkpoint_interval: 1
+summary_freq: 50
+val_interval: 1

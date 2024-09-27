@@ -9,6 +9,7 @@ import time
 import yaml
 import os
 from torch.utils.tensorboard.writer import SummaryWriter
+from omegaconf import OmegaConf
 from abc import ABCMeta
 from importlib import import_module
 
@@ -54,14 +55,14 @@ class IterRunner(metaclass=ABCMeta):
         Returns:
             None
         """
-        test_configs = self.configs['test_configs']
+        test_configs = self.configs.test_configs
 
         if self.distributed:
             self.device = torch.device(f'cuda:{self.local_rank}')
         else:
-            self.device = torch.device(test_configs['device'])
+            self.device = torch.device(test_configs.device)
 
-        workspace = test_configs['workspace']
+        workspace = test_configs.workspace
         checkpoint_path = test_configs.get('checkpoint', '')
         if checkpoint_path != '':
             if isinstance(checkpoint_path, int):
@@ -72,7 +73,7 @@ class IterRunner(metaclass=ABCMeta):
 
         print(f'Load checkpoint from {checkpoint_path}')
         checkpoint = torch.load(checkpoint_path,
-                                map_location=test_configs['device'])
+                                map_location=test_configs.device)
         epoch = checkpoint.get('epoch', None)
         metrics = {}
         if epoch is not None:
@@ -88,8 +89,8 @@ class IterRunner(metaclass=ABCMeta):
         ####################
         # setup dataloader #
         ####################
-        batch_size = self.dataset_configs['batch_size']
-        num_workers = self.dataset_configs['num_workers']
+        batch_size = self.dataset_configs.batch_size
+        num_workers = self.dataset_configs.num_workers
         test_dataset = self.dataset(self.dataset_configs, 'test')
         test_loader = DataLoader(test_dataset, batch_size=batch_size,
                                  shuffle=False, drop_last=True,
@@ -125,7 +126,7 @@ class IterRunner(metaclass=ABCMeta):
 
                 avg_meter.update(tensor2float(items))
         metrics.update(avg_meter.mean())
-        with open(test_configs['file_path'], 'w') as f:
+        with open(test_configs.file_path, 'w') as f:
             yaml.dump(metrics, f, default_flow_style=False, sort_keys=False)
         print(dict_to_str(metrics))
 
@@ -141,39 +142,39 @@ class IterRunner(metaclass=ABCMeta):
         self.configs = configs
 
         self.confgs = configs
-        self.model_configs = configs['model_configs']
-        self.dataset_configs = configs['dataset_configs']
-        self.loss_configs = configs['loss_configs']
+        self.model_configs = configs.model
+        self.dataset_configs = configs.dataset
+        self.loss_configs = configs.loss
 
         model = import_module('.models.{}'.format(
-            self.model_configs['name']), project)
+            self.model_configs.name), project)
         dataset = import_module('.datasets.{}'.format(
-            self.dataset_configs['name']), project)
+            self.dataset_configs.name), project)
         loss = import_module('.losses.{}'.format(
-            self.loss_configs['name']), project)
+            self.loss_configs.name), project)
 
         self.model = getattr(model, _name_to_class(
-            self.model_configs['name']))(configs)
+            self.model_configs.name))(configs)
         # class
         self.dataset = getattr(dataset, _name_to_class(
-            self.dataset_configs['name']))
+            self.dataset_configs.name))
         self.loss_term = getattr(loss, _name_to_class(
-            self.loss_configs['name']))(configs)
+            self.loss_configs.name))(configs)
 
         self.local_rank = int(os.environ.get('LOCAL_RANK', -1))
         self.distributed = self.local_rank >= 0
 
     def train(self):
-        optimizer_configs = self.configs['optimizer_configs']
-        train_configs = self.configs['train_configs']
+        optimizer_configs = self.configs.optimizer
+        train_configs = self.configs.train
 
         # device
-        workspace = train_configs['workspace']
+        workspace = train_configs.workspace
         self.logger = get_logger(workspace)
         if self.distributed:
             self.device = torch.device(f'cuda:{self.local_rank}')
         else:
-            self.device = torch.device(train_configs['device'])
+            self.device = torch.device(train_configs.device)
 
         self.info(self.logger, "Parameter count: {}".format(
             sum(p.numel() for p in self.model.parameters())))
@@ -190,8 +191,8 @@ class IterRunner(metaclass=ABCMeta):
         # set up optimizer #
         ####################
         optim = import_module("torch.optim")
-        name = optimizer_configs['name']
-        params = optimizer_configs.copy()
+        name = optimizer_configs.name
+        params = OmegaConf.to_container(optimizer_configs)
         params.pop('name')
         scheduler_configs = params.pop('lr_scheduler', None)
         self.optimizer = getattr(optim, name)(
@@ -244,10 +245,10 @@ class IterRunner(metaclass=ABCMeta):
         ####################
         # setup dataloader #
         ####################
-        batch_size = self.dataset_configs['batch_size']
-        num_workers = self.dataset_configs['num_workers']
-        train_dataset = self.dataset(self.dataset_configs, 'train')
-        val_dataset = self.dataset(self.dataset_configs, 'val')
+        batch_size = self.dataset_configs.batch_size
+        num_workers = self.dataset_configs.num_workers
+        train_dataset = self.dataset(self.configs, 'train')
+        val_dataset = self.dataset(self.configs, 'val')
         if self.distributed:
             train_sampler = DistributedSampler(train_dataset, shuffle=True)
             val_sampler = DistributedSampler(val_dataset, shuffle=False)
@@ -272,7 +273,7 @@ class IterRunner(metaclass=ABCMeta):
             writer = None
 
         ckpt_best = 'best.pth'
-        while self.step < train_configs['num_steps']:
+        while self.step < train_configs.num_steps:
             # Train
             avg_meter = DictAverageMeter()
             if self.distributed:
@@ -287,7 +288,7 @@ class IterRunner(metaclass=ABCMeta):
                     loss = self.loss_term(model_outputs, data, mode='train')
                 except NoGradientError:
                     self.info(self.logger, "[Train] [Iteration {}/{}] {}"
-                              .format(self.step+1, train_configs['num_steps'], 'No Gradient!'))
+                              .format(self.step+1, train_configs.num_steps, 'No Gradient!'))
                     continue
                 if isinstance(loss, tuple):
                     loss, items = loss
@@ -306,7 +307,7 @@ class IterRunner(metaclass=ABCMeta):
                     dist.all_reduce(loss)
                     loss /= world_size
                 self.info(self.logger, "[Train] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s | LR: {:.8f}"
-                          .format(self.step+1, train_configs['num_steps'], float(loss), t2-t1, self.optimizer.param_groups[0]['lr']))
+                          .format(self.step+1, train_configs.num_steps, float(loss), t2-t1, self.optimizer.param_groups[0]['lr']))
 
                 if items is not None:
                     items.update({'loss': float(loss)})
@@ -322,13 +323,13 @@ class IterRunner(metaclass=ABCMeta):
                 # save in average meter
                 avg_meter.update(tensor2float(items))
 
-                if self.step % train_configs['summary_freq'] == 0 and writer is not None:
+                if self.step % train_configs.summary_freq == 0 and writer is not None:
                     save_scalars(writer, 'train', items, self.step)
                     images = self._get_images(model_outputs, data)
                     if images is not None:
                         save_images(writer, 'train', images, self.step)
 
-                if (self.step+1) % train_configs['checkpoint_interval'] == 0 and self.local_rank <= 0:
+                if (self.step+1) % train_configs.checkpoint_interval == 0 and self.local_rank <= 0:
                     self.save(workspace)
 
                 # Validation
@@ -381,7 +382,7 @@ class IterRunner(metaclass=ABCMeta):
                         if avg_meter_val.count != 0:
                             meter_mean = avg_meter_val.mean()
                             self.info(self.logger, "[Val] [Iteration {}/{}] {}".format(self.step+1,
-                                                                                   train_configs['num_steps'], dict_to_str(meter_mean)))
+                                                                                   train_configs.num_steps, dict_to_str(meter_mean)))
                             if writer is not None:
                                 save_scalars(
                                     writer, 'val', meter_mean, self.step+1)
@@ -394,7 +395,7 @@ class IterRunner(metaclass=ABCMeta):
                                 self.save(workspace, ckpt_best)
 
                 self.step += 1
-                if self.step==train_configs['num_steps']:
+                if self.step==train_configs.num_steps:
                     break
 
             if writer is not None and avg_meter.count != 0:

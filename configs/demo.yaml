@@ -1,0 +1,25 @@
+defaults:
+  - dataset: my_dataset
+  - model: my_model
+  - optimizer: adam
+  - loss: l2_loss
+  - train: my_epoch_runner
+  - test: default
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+  - _self_
+
+hydra:
+  run:
+    dir: hydra/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: hydra/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+
+seed: 0
+
+train:
+  workspace: experiments/demo-bs${dataset.batch_size}-lr${optimizer.lr}
+
+model:
+  dim_hidden: 1024

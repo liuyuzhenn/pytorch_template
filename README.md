@@ -6,7 +6,7 @@ An easy-to-use template for pytorch project.
 
 - pytorch
 - tensorboard
-- pyyaml
+- hydra-core
 
 ## Usage
 

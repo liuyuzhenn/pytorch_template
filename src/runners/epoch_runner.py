@@ -1,6 +1,7 @@
 import torch
 import glob
 import torch.nn as nn
+from omegaconf import OmegaConf
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
@@ -54,14 +55,14 @@ class EpochRunner(metaclass=ABCMeta):
         Returns:
             None
         """
-        test_configs = self.configs['test_configs']
+        test_configs = self.configs.test
 
         if self.distributed:
             self.device = torch.device(f'cuda:{self.local_rank}')
         else:
-            self.device = torch.device(test_configs['device'])
+            self.device = torch.device(test_configs.device)
 
-        workspace = test_configs['workspace']
+        workspace = test_configs.workspace
         checkpoint_path = test_configs.get('checkpoint', '')
         if checkpoint_path != '':
             if isinstance(checkpoint_path, int):
@@ -72,7 +73,7 @@ class EpochRunner(metaclass=ABCMeta):
 
         print(f'Load checkpoint from {checkpoint_path}')
         checkpoint = torch.load(checkpoint_path,
-                                map_location=test_configs['device'])
+                                map_location=test_configs.device)
         epoch = checkpoint.get('epoch', None)
         metrics = {}
         if epoch is not None:
@@ -81,16 +82,15 @@ class EpochRunner(metaclass=ABCMeta):
         else:
             metrics['step'] = checkpoint['step']
             print('Step: {}'.format(checkpoint['step']))
-        metrics['checkpoint'] = checkpoint_path
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.model.to(self.device)
 
         ####################
         # setup dataloader #
         ####################
-        batch_size = self.dataset_configs['batch_size']
-        num_workers = self.dataset_configs['num_workers']
-        test_dataset = self.dataset(self.dataset_configs, 'test')
+        batch_size = self.dataset_configs.batch_size
+        num_workers = self.dataset_configs.num_workers
+        test_dataset = self.dataset(self.configs, 'test')
         test_loader = DataLoader(test_dataset, batch_size=batch_size,
                                  shuffle=False, drop_last=True,
                                  num_workers=num_workers)
@@ -125,9 +125,11 @@ class EpochRunner(metaclass=ABCMeta):
 
                 avg_meter.update(tensor2float(items))
         metrics.update(avg_meter.mean())
-        with open(test_configs['file_path'], 'w') as f:
+        metrics['checkpoint'] = checkpoint_path
+        with open(test_configs.file_path, 'w') as f:
             yaml.dump(metrics, f, default_flow_style=False, sort_keys=False)
         print(dict_to_str(metrics))
+        print(f'Results saved to: {test_configs.file_path}')
 
     def init_weights(self):
         """Initialize model weight at the beggining of training"""
@@ -135,45 +137,45 @@ class EpochRunner(metaclass=ABCMeta):
     def info(self, logger, message):
         if self.local_rank <= 0:
             logger.info(message)
+            # print()
 
     def __init__(self, configs):
         project = configs.get('project', 'src')
         self.configs = configs
 
-        self.confgs = configs
-        self.model_configs = configs['model_configs']
-        self.dataset_configs = configs['dataset_configs']
-        self.loss_configs = configs['loss_configs']
+        self.model_configs = configs.model
+        self.dataset_configs = configs.dataset
+        self.loss_configs = configs.loss
 
         model = import_module('.models.{}'.format(
-            self.model_configs['name']), project)
+            self.model_configs.name), project)
         dataset = import_module('.datasets.{}'.format(
-            self.dataset_configs['name']), project)
+            self.dataset_configs.name), project)
         loss = import_module('.losses.{}'.format(
-            self.loss_configs['name']), project)
+            self.loss_configs.name), project)
 
         self.model = getattr(model, _name_to_class(
-            self.model_configs['name']))(configs)
+            self.model_configs.name))(configs)
         # class
         self.dataset = getattr(dataset, _name_to_class(
-            self.dataset_configs['name']))
+            self.dataset_configs.name))
         self.loss_term = getattr(loss, _name_to_class(
-            self.loss_configs['name']))(configs)
+            self.loss_configs.name))(configs)
 
         self.local_rank = int(os.environ.get('LOCAL_RANK', -1))
         self.distributed = self.local_rank >= 0
 
     def train(self):
-        optimizer_configs = self.configs['optimizer_configs']
-        train_configs = self.configs['train_configs']
+        optimizer_configs = self.configs.optimizer
+        train_configs = self.configs.train
 
         # device
-        workspace = train_configs['workspace']
+        workspace = train_configs.workspace
         self.logger = get_logger(workspace)
         if self.distributed:
             self.device = torch.device(f'cuda:{self.local_rank}')
         else:
-            self.device = torch.device(train_configs['device'])
+            self.device = torch.device(train_configs.device)
 
         self.info(self.logger, "Parameter count: {}".format(
             sum(p.numel() for p in self.model.parameters())))
@@ -191,7 +193,7 @@ class EpochRunner(metaclass=ABCMeta):
         ####################
         optim = import_module("torch.optim")
         name = optimizer_configs['name']
-        params = optimizer_configs.copy()
+        params = OmegaConf.to_container(optimizer_configs)
         params.pop('name')
         scheduler_configs = params.pop('lr_scheduler', None)
         self.optimizer = getattr(optim, name)(
@@ -244,10 +246,10 @@ class EpochRunner(metaclass=ABCMeta):
         ####################
         # setup dataloader #
         ####################
-        batch_size = self.dataset_configs['batch_size']
-        num_workers = self.dataset_configs['num_workers']
-        train_dataset = self.dataset(self.dataset_configs, 'train')
-        val_dataset = self.dataset(self.dataset_configs, 'val')
+        batch_size = self.dataset_configs.batch_size
+        num_workers = self.dataset_configs.num_workers
+        train_dataset = self.dataset(self.configs, 'train')
+        val_dataset = self.dataset(self.configs, 'val')
         if self.distributed:
             train_sampler = DistributedSampler(train_dataset, shuffle=True)
             val_sampler = DistributedSampler(val_dataset, shuffle=False)
@@ -272,7 +274,7 @@ class EpochRunner(metaclass=ABCMeta):
             writer = None
 
         ckpt_best = 'best.pth'
-        while self.epoch < train_configs['num_epochs']:
+        while self.epoch < train_configs.num_epochs:
             # Train
             avg_meter = DictAverageMeter()
             if self.distributed:
@@ -287,7 +289,7 @@ class EpochRunner(metaclass=ABCMeta):
                     loss = self.loss_term(model_outputs, data, mode='train')
                 except NoGradientError:
                     self.info(self.logger, "[Train] [Epoch {}/{}] [Iteration {}/{}] {}"
-                              .format(self.epoch+1, train_configs['num_epochs'], i+1, len(train_loader), 'No Gradient!'))
+                              .format(self.epoch+1, train_configs.num_epochs, i+1, len(train_loader), 'No Gradient!'))
                     continue
                 if isinstance(loss, tuple):
                     loss, items = loss
@@ -307,7 +309,7 @@ class EpochRunner(metaclass=ABCMeta):
                     dist.all_reduce(loss)
                     loss /= world_size
                 self.info(self.logger, "[Train] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s"
-                          .format(self.epoch+1, train_configs['num_epochs'], i+1, len(train_loader), float(loss), t2-t1))
+                          .format(self.epoch+1, train_configs.num_epochs, i+1, len(train_loader), float(loss), t2-t1))
 
                 if items is not None:
                     items.update({'loss': float(loss)})
@@ -323,7 +325,7 @@ class EpochRunner(metaclass=ABCMeta):
                 # save in average meter
                 avg_meter.update(tensor2float(items))
 
-                if global_step % train_configs['summary_freq'] == 0 and self.local_rank <= 0:
+                if global_step % train_configs.summary_freq == 0 and self.local_rank <= 0:
                     save_scalars(writer, 'train', items, global_step)
                     images = self._get_images(model_outputs, data)
                     if images is not None:
@@ -335,14 +337,14 @@ class EpochRunner(metaclass=ABCMeta):
 
             if avg_meter.count != 0:
                 self.info(self.logger, "[Train] [Epoch {}/{}] {}".format(self.epoch+1,
-                                                                         train_configs['num_epochs'], dict_to_str(avg_meter.mean())))
+                                                                         train_configs.num_epochs, dict_to_str(avg_meter.mean())))
             self.lr_scheduler.step()
 
             for g in self.optimizer.param_groups:
                 self.info(self.logger, "Adjusting learning rate of group 0 to {}.".format(
                     g['lr']))
 
-            if (self.epoch+1) % train_configs['checkpoint_interval'] == 0 and self.local_rank <= 0:
+            if (self.epoch+1) % train_configs.checkpoint_interval == 0 and self.local_rank <= 0:
                 self.save(workspace)
 
             # Validation
@@ -362,7 +364,7 @@ class EpochRunner(metaclass=ABCMeta):
                             loss = self.loss_term(model_outputs, data, mode='val')
                         except NoGradientError:
                             self.info(self.logger, "[Val] [Epoch {}/{}] [Iteration {}/{}] {}"
-                                      .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_loader), 'No Gradient!'))
+                                      .format(self.epoch+1, train_configs.num_epochs, i+1, len(val_loader), 'No Gradient!'))
                             continue
 
                         if isinstance(loss, tuple):
@@ -378,7 +380,7 @@ class EpochRunner(metaclass=ABCMeta):
                             items = None
 
                         self.info(self.logger, "[Val] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s"
-                                  .format(self.epoch+1, train_configs['num_epochs'], i+1, len(val_loader), float(loss), t2-t1))
+                                  .format(self.epoch+1, train_configs.num_epochs, i+1, len(val_loader), float(loss), t2-t1))
                         global_step = len(val_loader)*self.epoch+i
 
                         if items is not None:
@@ -396,7 +398,7 @@ class EpochRunner(metaclass=ABCMeta):
                     if avg_meter.count != 0:
                         meter_mean = avg_meter.mean()
                         self.info(self.logger, "[Val] [Epoch {}/{}] {}".format(self.epoch+1,
-                                                                               train_configs['num_epochs'], dict_to_str(meter_mean)))
+                                                                               train_configs.num_epochs, dict_to_str(meter_mean)))
                         if writer is not None:
                             save_scalars(
                                 writer, 'val', meter_mean, self.epoch)
