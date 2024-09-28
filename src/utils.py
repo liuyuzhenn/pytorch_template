@@ -34,16 +34,16 @@ def train(configs):
     project = configs.get('project', 'src')
 
     runner = import_module('.runners.{}'.format(
-        train_configs['name']), project)
+        train_configs.name), project)
     runner = getattr(runner, _name_to_class(
-        train_configs['name']))(configs)
+        train_configs.name))(configs)
 
     try:
         runner.train()
     except KeyboardInterrupt:
         runner.logger.info(
             'Got Keyboard Interuption, saving model and closing.')
-        runner.save(train_configs['workspace'], 'interrupt_ckpt.pth')
+        runner.save(os.path.join(workspace, 'checkpoints'), 'interrupt_ckpt.pth')
 
 
 def test(configs):

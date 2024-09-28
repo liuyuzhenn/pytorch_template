@@ -59,6 +59,9 @@ def save_scalars(writer, mode, scalar_dict, global_step):
 
 
 def save_images(writer, mode, images_dict, global_step):
+    '''
+    images: (b,3,h,w) or (b,h,w)
+    '''
     images_dict = tensor2numpy(images_dict)
 
     def preprocess(name, img):
@@ -67,7 +70,7 @@ def save_images(writer, mode, images_dict, global_step):
                 "invalid img shape {}:{} in save_images".format(name, img.shape))
         if len(img.shape) == 3:
             img = img[:, np.newaxis, :, :]
-        img = torch.from_numpy(img[:1])
+        img = torch.from_numpy(img[:1]) # only use the first image in batch
         return vutils.make_grid(img, padding=0, nrow=1, normalize=True, scale_each=True)
 
     for key, value in images_dict.items():

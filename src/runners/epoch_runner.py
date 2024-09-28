@@ -64,12 +64,13 @@ class EpochRunner(metaclass=ABCMeta):
 
         workspace = test_configs.workspace
         checkpoint_path = test_configs.get('checkpoint', '')
+        ckpt_dir = os.path.join(workspace, 'checkpoints')
         if checkpoint_path != '':
             if isinstance(checkpoint_path, int):
                 checkpoint_path = 'ckpt_{:0>4}.pth'.format(checkpoint_path)
-            checkpoint_path = os.path.join(workspace, checkpoint_path)
+            checkpoint_path = os.path.join(ckpt_dir, checkpoint_path)
         else:
-            checkpoint_path = os.path.join(workspace, 'best.pth')
+            checkpoint_path = os.path.join(ckpt_dir, 'best.pth')
 
         print(f'Load checkpoint from {checkpoint_path}')
         checkpoint = torch.load(checkpoint_path,
@@ -224,10 +225,12 @@ class EpochRunner(metaclass=ABCMeta):
         self.metric_val_min = np.inf
         self.init_weights()
         resume = train_configs.get('resume', False)
+        ckpt_dir = os.path.join(workspace, 'checkpoints')
+        os.makedirs(ckpt_dir, exist_ok=True)
         if resume:
             checkpoint = train_configs.get('checkpoint', None)
             if checkpoint is None:
-                files = glob.glob(os.path.join(workspace, 'ckpt_*.pth'))
+                files = glob.glob(os.path.join(ckpt_dir, 'ckpt_*.pth'))
                 files = [os.path.basename(f) for f in files]
                 files.sort()
                 if len(files) > 0:
@@ -238,7 +241,7 @@ class EpochRunner(metaclass=ABCMeta):
             if checkpoint is not None:
                 if isinstance(checkpoint, int):
                     checkpoint = 'ckpt_{:0>4}.pth'.format(checkpoint)
-                checkpoint = os.path.join(workspace, checkpoint)
+                checkpoint = os.path.join(ckpt_dir, checkpoint)
                 self.info(self.logger,
                           "Loading checkpoint from {}.".format(checkpoint))
                 self.load(checkpoint)
@@ -345,7 +348,7 @@ class EpochRunner(metaclass=ABCMeta):
                     g['lr']))
 
             if (self.epoch+1) % train_configs.checkpoint_interval == 0 and self.local_rank <= 0:
-                self.save(workspace)
+                self.save(ckpt_dir)
 
             # Validation
             if (self.epoch+1) % train_configs.get('val_interval', 1) == 0:
@@ -408,7 +411,7 @@ class EpochRunner(metaclass=ABCMeta):
                             self.metric_val_min = metric_current
                             self.info(self.logger,
                                       "Update best ckeckpoint, saved as {}".format(ckpt_best))
-                            self.save(workspace, ckpt_best)
+                            self.save(ckpt_dir, ckpt_best)
 
             self.epoch += 1
 

@@ -1,6 +1,6 @@
 name: 'my_epoch_runner'
 device: "cuda"
-metric_val: 'residual_0.1'
+metric_val: residual
 workspace: experiments/demo-bs${dataset.batch_size}-lr${optimizer.lr}
 enable_tensorboard: true
 num_epochs: 100

@@ -46,6 +46,6 @@ project
 An example could be found in the `torch_temp` folder, which is to train a model to fit the following function: 
 $$x_1^2+e^{x_1+x_2}-2x_3$$
 
-Use `python train.py` to run the demo.
+Use `python train.py --config-name demo` to run the demo.
 
-Or `CUDA_VISIBLE_DEVICES=0,1,2,3 bash dist_train.sh 4` for distributed training.
+Or `CUDA_VISIBLE_DEVICES=0,1,2,3 bash dist_train.sh 4 --config-name demo` for distributed training.

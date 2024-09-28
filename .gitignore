@@ -1,5 +1,5 @@
 __pycache__/
-experiments/
-ablation/
-rebuttal/
-hydra/
+/experiments/
+/ablation/
+/rebuttal/
+/hydra/

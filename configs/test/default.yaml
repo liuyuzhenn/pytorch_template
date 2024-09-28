@@ -2,5 +2,5 @@ name: ${train.name}
 device: ${train.device}
 split: val
 workspace: ${train.workspace}
-checkpoint: 100
+# checkpoint: 100
 file_path: ${test.workspace}/test.yaml

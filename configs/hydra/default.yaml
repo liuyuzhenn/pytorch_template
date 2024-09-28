@@ -1,0 +1,9 @@
+defaults:
+  - override hydra_logging: disabled
+  - override job_logging: disabled
+
+run:
+  dir: hydra/outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+sweep:
+  dir: hydra/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  subdir: ${hydra.job.num}
