@@ -1,4 +1,4 @@
-name: 'my_iter_runner'
+__target__: 'src.runners.my_iter_runner.MyIterRunner'
 device: "cuda"
 metric_val: residual
 workspace: "experiments/demo2"

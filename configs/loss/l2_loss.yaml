@@ -1,1 +1,1 @@
-name: "l2_loss" # necessary
+__target__: "src.losses.l2_loss.L2Loss"

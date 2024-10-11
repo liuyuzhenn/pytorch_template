@@ -14,5 +14,5 @@ class L2Loss(nn.Module):
         y_gt = inputs_data['y']
         loss = torch.norm(y_pred-y_gt, p=2, dim=-1).mean()
         # optionally return some statistics stored in a dict
-        return loss, {'residual': loss.detach()}
+        return loss
         

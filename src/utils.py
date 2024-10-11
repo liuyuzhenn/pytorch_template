@@ -4,8 +4,24 @@ from importlib import import_module
 from omegaconf import OmegaConf
 
 
-def _name_to_class(name):
-    return ''.join(n.capitalize() for n in name.split('_'))
+# def _name_to_class(name):
+#     return ''.join(n.capitalize() for n in name.split('_'))
+
+def build_instance(s, cfg):
+    items = s.split('.')
+    base_path = items[:-1]
+    base_path = '.'.join(base_path)
+    cls_name = items[-1]
+    instance = getattr(import_module(base_path), cls_name)(cfg)
+    return instance
+
+def get_cls(s):
+    items = s.split('.')
+    base_path = items[:-1]
+    base_path = '.'.join(base_path)
+    cls_name = items[-1]
+    cl = getattr(import_module(base_path), cls_name)
+    return cl
 
 
 def get_logger(logdir):
@@ -31,12 +47,7 @@ def train(configs):
     path = os.path.join(workspace, 'configs.yml')
     OmegaConf.save(configs, path)
 
-    project = configs.get('project', 'src')
-
-    runner = import_module('.runners.{}'.format(
-        train_configs.name), project)
-    runner = getattr(runner, _name_to_class(
-        train_configs.name))(configs)
+    runner = build_instance(train_configs.__target__, configs)
 
     try:
         runner.train()
@@ -52,7 +63,6 @@ def test(configs):
 
     runner = import_module('.runners.{}'.format(
         test_configs.name), project)
-    runner = getattr(runner, _name_to_class(
-        test_configs.name))(configs)
+    runner = build_instance(test_configs.__target__, configs)
 
     runner.test()

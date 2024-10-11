@@ -1,4 +1,4 @@
-name: 'my_epoch_runner'
+__target__: 'src.runners.my_epoch_runner.MyEpochRunner'
 device: "cuda"
 metric_val: residual
 workspace: experiments/demo-bs${dataset.batch_size}-lr${optimizer.lr}

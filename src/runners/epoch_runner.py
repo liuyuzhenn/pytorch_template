@@ -1,6 +1,7 @@
 import torch
 import glob
 import torch.nn as nn
+from tqdm import tqdm
 from omegaconf import OmegaConf
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
@@ -13,13 +14,10 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from abc import ABCMeta
 from importlib import import_module
 
-from ..losses.exceptions import NoGradientError
-from ..utils import get_logger
+from src.losses.exceptions import NoGradientError
+from src.utils import get_logger, build_instance, get_cls
 from .utils import *
 
-
-def _name_to_class(name):
-    return ''.join(n.capitalize() for n in name.split('_'))
 
 
 class EpochRunner(metaclass=ABCMeta):
@@ -135,33 +133,74 @@ class EpochRunner(metaclass=ABCMeta):
     def init_weights(self):
         """Initialize model weight at the beggining of training"""
 
-    def info(self, logger, message):
+    def print(self, message):
         if self.local_rank <= 0:
-            logger.info(message)
-            # print()
+            self.logger.info(message)
+
+    def on_train_epoch_start(self):
+        return
+
+    def on_train_epoch_end(self):
+        return
+
+    def on_validation_epoch_start(self):
+        return
+
+    def on_validation_end(self):
+        return
+
+    def on_validation_batch_start(self, batch, batch_idx):
+        return
+    
+    def on_validation_batch_end(self, model_outputs, batch, batch_idx):
+        return
+
+    def training_step(self, batch, batch_idx):
+        model_outputs = self.model.forward(batch)
+        try:
+            loss = self.loss_term(model_outputs, batch, mode='train')
+        except NoGradientError:
+            raise NoGradientError
+
+        return loss, model_outputs
+    
+    def validation_step(self, batch, batch_idx):
+        '''
+        could use it to store validaiton values,
+        then use the values to compute metrics, 
+        and finally save the overall metrics through `on_validation_end`
+        '''
+        model_outputs = self.model(batch, mode='val')
+        try:
+            loss = self.loss_term(model_outputs, batch, mode='val')
+        except NoGradientError:
+            raise NoGradientError
+        metrics = {'loss': float(loss)}
+        metrics.update(self._metrics(model_outputs, batch, mode='val'))
+        return model_outputs, metrics
+
+
+    def log(self, mode, scalar_dict, step):
+        if self.writer is not None:
+            save_scalars(self.writer, mode, scalar_dict, step)
+
+    def log_imgs(self, mode, img_dict, step):
+        if self.writer is not None:
+            save_images(self.writer, mode, img_dict, step)
+        
 
     def __init__(self, configs):
-        project = configs.get('project', 'src')
+        # project = configs.get('project', 'src')
         self.configs = configs
 
         self.model_configs = configs.model
         self.dataset_configs = configs.dataset
         self.loss_configs = configs.loss
 
-        model = import_module('.models.{}'.format(
-            self.model_configs.name), project)
-        dataset = import_module('.datasets.{}'.format(
-            self.dataset_configs.name), project)
-        loss = import_module('.losses.{}'.format(
-            self.loss_configs.name), project)
+        self.model = build_instance(self.model_configs.__target__, configs)
+        self.loss_term = build_instance(self.loss_configs.__target__, configs)
 
-        self.model = getattr(model, _name_to_class(
-            self.model_configs.name))(configs)
-        # class
-        self.dataset = getattr(dataset, _name_to_class(
-            self.dataset_configs.name))
-        self.loss_term = getattr(loss, _name_to_class(
-            self.loss_configs.name))(configs)
+        self.dataset = get_cls(self.dataset_configs.__target__)
 
         self.local_rank = int(os.environ.get('LOCAL_RANK', -1))
         self.distributed = self.local_rank >= 0
@@ -169,6 +208,10 @@ class EpochRunner(metaclass=ABCMeta):
     def train(self):
         optimizer_configs = self.configs.optimizer
         train_configs = self.configs.train
+
+        val_batches = train_configs.get('val_batches', np.inf)
+        val_mode  = train_configs.get('val_mode', 'min')
+        metric_val = train_configs.get('metric_val', 'loss')
 
         # device
         workspace = train_configs.workspace
@@ -178,7 +221,7 @@ class EpochRunner(metaclass=ABCMeta):
         else:
             self.device = torch.device(train_configs.device)
 
-        self.info(self.logger, "Parameter count: {}".format(
+        self.print("Parameter count: {}".format(
             sum(p.numel() for p in self.model.parameters())))
 
         #######################
@@ -188,17 +231,19 @@ class EpochRunner(metaclass=ABCMeta):
         if self.distributed:
             self.model = DDP(self.model, device_ids=[self.local_rank])
             world_size = dist.get_world_size()
+        else:
+            world_size = 1
 
         ####################
         # set up optimizer #
         ####################
-        optim = import_module("torch.optim")
-        name = optimizer_configs['name']
+        # optim = import_module("torch.optim")
+        optim_cls = get_cls(optimizer_configs.__target__)
+        # name = optimizer_configs['name']
         params = OmegaConf.to_container(optimizer_configs)
-        params.pop('name')
+        params.pop('__target__')
         scheduler_configs = params.pop('lr_scheduler', None)
-        self.optimizer = getattr(optim, name)(
-            self.model.parameters(), **params)
+        self.optimizer = optim_cls(self.model.parameters(), **params)
 
         ####################
         # set up scheduler #
@@ -208,21 +253,21 @@ class EpochRunner(metaclass=ABCMeta):
             self.lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
                 self.optimizer, lambda epoch: 1)
         else:
-            lib_schedulers = import_module(
-                'torch.optim.lr_scheduler')
-            name_scheduler = scheduler_configs['name']
+            scheduler_cls = get_cls(scheduler_configs['__target__'])
             self.params = scheduler_configs.copy()
-            self.params.pop('name')
+            self.params.pop('__target__')
             self.params = {k: (v if k != 'lr_lambda' else eval(v))
                            for k, v in self.params.items()}
-            self.lr_scheduler = getattr(lib_schedulers, name_scheduler)(
-                self.optimizer, **self.params)
+            self.lr_scheduler = scheduler_cls(self.optimizer, **self.params)
 
         ################################
         # continue from the checkpoint #
         ################################
         self.epoch = 0
-        self.metric_val_min = np.inf
+        if val_mode=='min':
+            self.metric_val_record = np.inf
+        else:
+            self.metric_val_record = -np.inf
         self.init_weights()
         resume = train_configs.get('resume', False)
         ckpt_dir = os.path.join(workspace, 'checkpoints')
@@ -236,14 +281,13 @@ class EpochRunner(metaclass=ABCMeta):
                 if len(files) > 0:
                     checkpoint = files[-1]
                 else:
-                    self.info(self.logger, "No checkpoint found!")
+                    self.print("No checkpoint found!")
 
             if checkpoint is not None:
                 if isinstance(checkpoint, int):
                     checkpoint = 'ckpt_{:0>4}.pth'.format(checkpoint)
                 checkpoint = os.path.join(ckpt_dir, checkpoint)
-                self.info(self.logger,
-                          "Loading checkpoint from {}.".format(checkpoint))
+                self.print("Loading checkpoint from {}.".format(checkpoint))
                 self.load(checkpoint)
 
         ####################
@@ -253,18 +297,20 @@ class EpochRunner(metaclass=ABCMeta):
         num_workers = self.dataset_configs.num_workers
         train_dataset = self.dataset(self.configs, 'train')
         val_dataset = self.dataset(self.configs, 'val')
+        # train_dataset = build_instance(self.configs, 'train')
+        # val_dataset = build_instance(self.configs, 'val')
         if self.distributed:
             train_sampler = DistributedSampler(train_dataset, shuffle=True)
             val_sampler = DistributedSampler(val_dataset, shuffle=False)
-            train_loader = DataLoader(train_dataset,
+            self.train_loader = DataLoader(train_dataset,
                                       batch_size=batch_size, sampler=train_sampler)
-            val_loader = DataLoader(val_dataset,
+            self.val_loader = DataLoader(val_dataset,
                                     batch_size=batch_size, sampler=val_sampler)
         else:
-            train_loader = DataLoader(train_dataset, batch_size=batch_size,
+            self.train_loader = DataLoader(train_dataset, batch_size=batch_size,
                                       shuffle=True, drop_last=True,
                                       num_workers=num_workers)
-            val_loader = DataLoader(val_dataset, batch_size=batch_size,
+            self.val_loader = DataLoader(val_dataset, batch_size=batch_size,
                                     shuffle=False, drop_last=True,
                                     num_workers=num_workers)
 
@@ -272,146 +318,109 @@ class EpochRunner(metaclass=ABCMeta):
         # initialize tensorboard #
         ##########################
         if train_configs.get('enable_tensorboard', True) and self.local_rank <= 0:
-            writer = SummaryWriter(workspace)
+            self.writer = SummaryWriter(workspace)
         else:
-            writer = None
+            self.writer = None
 
         ckpt_best = 'best.pth'
         while self.epoch < train_configs.num_epochs:
             # Train
             avg_meter = DictAverageMeter()
             if self.distributed:
-                train_loader.sampler.set_epoch(self.epoch)
+                self.train_loader.sampler.set_epoch(self.epoch)
             self.model.train()
-            for i, data in enumerate(train_loader):
-                t1 = time.time()
-                data = to_device(data, self.device)
+            bar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
+            self.on_train_epoch_start()
+            for batch_idx, batch_data in bar:
+                batch_data = to_device(batch_data, self.device)
                 self.optimizer.zero_grad()
-                model_outputs = self.model.forward(data)
+
                 try:
-                    loss = self.loss_term(model_outputs, data, mode='train')
+                    loss, model_outputs  = self.training_step(batch_data, batch_idx)
                 except NoGradientError:
-                    self.info(self.logger, "[Train] [Epoch {}/{}] [Iteration {}/{}] {}"
-                              .format(self.epoch+1, train_configs.num_epochs, i+1, len(train_loader), 'No Gradient!'))
                     continue
-                if isinstance(loss, tuple):
-                    loss, items = loss
-                    if self.distributed:
-                        _ = [dist.all_reduce(x) for x in items.values()]
-                        items = {k: v/world_size for k, v in items.items()}
-                else:
-                    items = None
 
                 loss.backward()
                 self.optimizer.step()
-                t2 = time.time()
 
-                global_step = len(train_loader)*self.epoch+i
+                global_step = len(self.train_loader)*self.epoch+batch_idx
 
                 if self.distributed:
                     dist.all_reduce(loss)
                     loss /= world_size
-                self.info(self.logger, "[Train] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s"
-                          .format(self.epoch+1, train_configs.num_epochs, i+1, len(train_loader), float(loss), t2-t1))
+                bar.set_description(f'[Epoch {self.epoch+1}/{train_configs.num_epochs}]')
+                bar.set_postfix_str(f'Loss: {float(loss.mean()):.6f}')
 
-                if items is not None:
-                    items.update({'loss': float(loss)})
-                else:
-                    items = {'loss': float(loss)}
-
-                metrics = self._metrics(model_outputs, data, mode='train')
-                if metrics is not None:
-                    if self.distributed:
-                        _ = [dist.all_reduce(x) for x in metrics.values()]
-                        metrics = {k: v/world_size for k, v in metrics.items()}
-                    items.update(metrics)
+                metrics = self._metrics(model_outputs, batch_data, mode='train')
+                if self.distributed and (metrics is not None):
+                    _ = [dist.all_reduce(x) for x in metrics.values()]
+                    metrics = {k: v/world_size for k, v in metrics.items()}
                 # save in average meter
-                avg_meter.update(tensor2float(items))
+                avg_meter.update(tensor2float(metrics))
 
                 if global_step % train_configs.summary_freq == 0 and self.local_rank <= 0:
-                    save_scalars(writer, 'train', items, global_step)
-                    images = self._get_images(model_outputs, data)
+                    self.log('train', metrics, global_step)
+                    images = self._get_images(model_outputs, batch_data)
                     if images is not None:
-                        save_images(writer, 'train', images, global_step)
-
-            if writer is not None and avg_meter.count != 0:
-                save_scalars(writer, 'train_avg',
-                             avg_meter.mean(), self.epoch)
+                        self.log_imgs('train', images, global_step)
+            self.on_train_epoch_end()
 
             if avg_meter.count != 0:
-                self.info(self.logger, "[Train] [Epoch {}/{}] {}".format(self.epoch+1,
-                                                                         train_configs.num_epochs, dict_to_str(avg_meter.mean())))
+                self.log('train_avg', avg_meter.mean(), self.epoch)
+                bar.set_description("[Train] [Epoch {}/{}] {}".format(self.epoch+1,train_configs.num_epochs, dict_to_str(avg_meter.mean())))
+
             self.lr_scheduler.step()
 
             for g in self.optimizer.param_groups:
-                self.info(self.logger, "Adjusting learning rate of group 0 to {}.".format(
+                self.print("Adjusting learning rate of group 0 to {}.".format(
                     g['lr']))
 
             if (self.epoch+1) % train_configs.checkpoint_interval == 0 and self.local_rank <= 0:
                 self.save(ckpt_dir)
 
             # Validation
+            self.on_validation_epoch_start()
             if (self.epoch+1) % train_configs.get('val_interval', 1) == 0:
                 avg_meter = DictAverageMeter()
                 if self.distributed:
-                    val_loader.sampler.set_epoch(self.epoch)
+                    self.val_loader.sampler.set_epoch(self.epoch)
+
                 with torch.no_grad():
                     self.model.eval()
-                    for i, data in enumerate(val_loader):
-                        t1 = time.time()
-                        data = to_device(data, self.device)
-                        model_outputs = self.model(data, mode='val')
-                        t2 = time.time()
+                    bar = tqdm(enumerate(self.val_loader), total=min(val_batches, len(self.val_loader)))
+                    for batch_idx, batch_data in bar:
 
+                        self.on_validation_batch_start(batch_data, batch_idx)
+
+                        batch_data = to_device(batch_data, self.device)
                         try:
-                            loss = self.loss_term(model_outputs, data, mode='val')
+                            model_outputs, metrics = self.validation_step(batch_data, batch_idx)
                         except NoGradientError:
-                            self.info(self.logger, "[Val] [Epoch {}/{}] [Iteration {}/{}] {}"
-                                      .format(self.epoch+1, train_configs.num_epochs, i+1, len(val_loader), 'No Gradient!'))
+                            self.print("[Val] [Epoch {}/{}] [Iteration {}/{}] Value errors encountered!"
+                                      .format(self.epoch+1, train_configs.num_epochs, batch_idx+1, len(self.val_loader)))
                             continue
 
-                        if isinstance(loss, tuple):
-                            loss, items = loss
-                            if self.distributed:
-                                _ = [dist.all_reduce(x)
-                                     for x in items.values()]
-                                items = {k: v/world_size for k,
-                                         v in items.items()}
-                                dist.all_reduce(loss)
-                                loss /= world_size
-                        else:
-                            items = None
+                        self.on_validation_batch_end(model_outputs, batch_data, batch_idx)
 
-                        self.info(self.logger, "[Val] [Epoch {}/{}] [Iteration {}/{}] Loss: {:.3f} | Time cost: {:.3f} s"
-                                  .format(self.epoch+1, train_configs.num_epochs, i+1, len(val_loader), float(loss), t2-t1))
-                        global_step = len(val_loader)*self.epoch+i
+                        avg_meter.update(tensor2float(metrics))
+                        if batch_idx == val_batches:
+                            break
+            
+            if avg_meter.count != 0:
+                meter_mean = avg_meter.mean()
+                self.print("[Val] [Epoch {}/{}] {}".format(self.epoch+1,train_configs.num_epochs, dict_to_str(meter_mean)))
+                self.log('val', meter_mean, self.epoch)
 
-                        if items is not None:
-                            items.update({'loss': float(loss)})
-                        else:
-                            items = {'loss': float(loss)}
-
-                        metrics = self._metrics(
-                            model_outputs, data, mode='val')
-                        if metrics is not None:
-                            items.update(metrics)
-
-                        avg_meter.update(tensor2float(items))
-
-                    if avg_meter.count != 0:
-                        meter_mean = avg_meter.mean()
-                        self.info(self.logger, "[Val] [Epoch {}/{}] {}".format(self.epoch+1,
-                                                                               train_configs.num_epochs, dict_to_str(meter_mean)))
-                        if writer is not None:
-                            save_scalars(
-                                writer, 'val', meter_mean, self.epoch)
-
-                        metric_current = meter_mean[train_configs.get('metric_val', 'loss')]
-                        if metric_current < self.metric_val_min:
-                            self.metric_val_min = metric_current
-                            self.info(self.logger,
-                                      "Update best ckeckpoint, saved as {}".format(ckpt_best))
-                            self.save(ckpt_dir, ckpt_best)
+                metric_current = meter_mean[metric_val]
+                if val_mode =='min' and (metric_current < self.metric_val_record):
+                    self.metric_val_record = metric_current
+                    self.save(ckpt_dir, ckpt_best)
+                    self.print("Update best ckeckpoint, saved as {}".format(ckpt_best))
+                elif val_mode =='max' and (metric_current > self.metric_val_record):
+                    self.metric_val_record = metric_current
+                    self.save(ckpt_dir, ckpt_best)
+                    self.print("Update best ckeckpoint, saved as {}".format(ckpt_best))
+            self.on_validation_end()
 
             self.epoch += 1
 
@@ -424,7 +433,7 @@ class EpochRunner(metaclass=ABCMeta):
             'model_state_dict': self.model.module.state_dict() if self.distributed else self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'lr_scheduler_state_dict': self.lr_scheduler.state_dict(),
-            'metric_val_min': self.metric_val_min
+            'metric_val_min': self.metric_val_record
         }, save_path)
 
     def load(self, checkpoint_path, model_only=False):
@@ -438,8 +447,7 @@ class EpochRunner(metaclass=ABCMeta):
             self.lr_scheduler.load_state_dict(
                 checkpoint['lr_scheduler_state_dict'])
             self.epoch = checkpoint['epoch']
-            self.metric_val_min = checkpoint['metric_val_min']
+            self.metric_val_record = checkpoint['metric_val_min']
 
             for g in self.optimizer.param_groups:
-                self.info(self.logger, "Adjusting learning rate of group 0 to {}.".format(
-                    g['lr']))
+                self.print("Adjusting learning rate of group 0 to {}.".format(g['lr']))

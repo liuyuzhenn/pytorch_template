@@ -1,11 +1,11 @@
 # see: https://pytorch.org/docs/stable/optim.html
-name: "Adam" # necessary
+__target__: "torch.optim.Adam" # necessary
 lr: 0.01
 betas: [0.9, 0.999]
 weight_decay: 0.0
 lr_scheduler:
-  name: "ExponentialLR"
+  __target__: "torch.optim.lr_scheduler.ExponentialLR"
   gamma: 0.999
 # lr_scheduler:
-#   name: "LambdaLR"
+#   __target__: "LambdaLR"
 #   lr_lambda: "lambda p: 0.99**p"

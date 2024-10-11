@@ -1,5 +1,5 @@
-name: "my_dataset"
-batch_size: 128 # necessary
+__target__: "src.datasets.my_dataset.MyDataset"
+batch_size: 64 # necessary
 num_workers: 1
 
 train_size: 4096

@@ -1,4 +1,4 @@
-name: ${train.name}
+__target__: ${train.__target__}
 device: ${train.device}
 split: val
 workspace: ${train.workspace}
