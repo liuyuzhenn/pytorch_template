@@ -2,7 +2,7 @@ __target__: "src.datasets.my_dataset.MyDataset"
 batch_size: 64 # necessary
 num_workers: 1
 
-train_size: 4096
+train_size: 40960
 noise: 1 # std of gaussian noise
 val_size: 2048
 test_size: 1024

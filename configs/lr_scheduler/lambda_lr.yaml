@@ -1,0 +1,2 @@
+__target__: "torch.optim.lr_scheduler.LambdaLR"
+lr_lambda: "lambda p: 1"

@@ -58,11 +58,8 @@ def train(configs):
 
 
 def test(configs):
-    project = configs.get('project', 'src')
     test_configs = configs.test
 
-    runner = import_module('.runners.{}'.format(
-        test_configs.name), project)
     runner = build_instance(test_configs.__target__, configs)
 
     runner.test()

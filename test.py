@@ -1,4 +1,8 @@
 import os
+t = '6'
+os.environ['MKL_NUM_THREADS']=f'{t}'
+os.environ['NUMEXPR_NUM_THREADS']=f'{t}'
+os.environ['OMP_NUM_THREADS']=f'{t}'
 import hydra
 import random
 import numpy as np

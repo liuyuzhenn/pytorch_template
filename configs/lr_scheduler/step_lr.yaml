@@ -1,0 +1,3 @@
+__target__: "torch.optim.lr_scheduler.StepLR"
+gamma: 0.8
+step_size: 2000

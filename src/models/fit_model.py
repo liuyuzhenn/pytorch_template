@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 
-class MyModel(nn.Module):
+class FitModel(nn.Module):
     def __init__(self, configs) -> None:
         super().__init__()
         self.model_configs = configs.model

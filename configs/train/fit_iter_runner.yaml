@@ -1,0 +1,12 @@
+__target__: 'src.runners.fit_runner.FitIterRunner'
+device: "cuda"
+val_metric: residual
+val_mode: 'min'
+workspace: experiments/demo-iter-bs${dataset.batch_size}-lr${optimizer.lr}
+enable_tensorboard: true
+max_steps: 30000
+resume: false
+# checkpoint: 2000
+checkpoint_interval: 2000
+summary_freq: 50
+val_interval: 2000

@@ -1,15 +1,16 @@
 defaults:
   - dataset: my_dataset
-  - model: my_model
+  - model: fit_model
   - optimizer: adam
   - loss: l2_loss
-  - train: my_epoch_runner
+  - train: fit_epoch_runner
   - test: default
   - hydra: default
+  - lr_scheduler: lambda_lr # constant
   - _self_
 
 model:
   dim_hidden: 256
 
-train:
-  workspace: experiments/demo-bs${dataset.batch_size}-dim${model.dim_hidden}
+# train:
+#   workspace: experiments/demo-bs${dataset.batch_size}-dim${model.dim_hidden}

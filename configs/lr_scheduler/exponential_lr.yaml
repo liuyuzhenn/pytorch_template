@@ -1,0 +1,2 @@
+__target__: "torch.optim.lr_scheduler.ExponentialLR"
+gamma: 0.999
