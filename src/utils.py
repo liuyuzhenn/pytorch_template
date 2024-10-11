@@ -4,9 +4,6 @@ from importlib import import_module
 from omegaconf import OmegaConf
 
 
-# def _name_to_class(name):
-#     return ''.join(n.capitalize() for n in name.split('_'))
-
 def build_instance(s, cfg):
     items = s.split('.')
     base_path = items[:-1]

@@ -1,10 +1,16 @@
+import os
+t = '6'
+os.environ['MKL_NUM_THREADS']=f'{t}'
+os.environ['NUMEXPR_NUM_THREADS']=f'{t}'
+os.environ['OMP_NUM_THREADS']=f'{t}'
+
 import random
 import numpy as np
-import os
 import hydra
 from omegaconf import OmegaConf, DictConfig
 
 import torch
+import torch.distributed
 from src.utils import train as ttrain
 
 

@@ -8,6 +8,7 @@ import random
 import numpy as np
 
 import torch
+import torch.distributed
 from src.utils import test as ttest
 from omegaconf import OmegaConf, DictConfig
 
