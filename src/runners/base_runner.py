@@ -315,7 +315,7 @@ class IterRunner(BaseRunner):
         with torch.no_grad():
             self.model.eval()
             self.on_test_epoch_start()
-            for idx, data in tqdm(enumerate(test_loader)):
+            for idx, data in tqdm(enumerate(test_loader), dynamic_ncols=True):
                 data = to_device(data, self.device)
                 
                 self.on_test_batch_start(data, idx)
@@ -448,7 +448,7 @@ class IterRunner(BaseRunner):
             avg_meter_train = DictAverageMeter()
             if self.distributed:
                 self.train_loader.sampler.set_epoch(self.global_step//len(self.train_loader))
-            train_bar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
+            train_bar = tqdm(enumerate(self.train_loader), total=len(self.train_loader), dynamic_ncols=True)
             self.on_train_epoch_start()
             for batch_idx, batch_data in train_bar:
                 batch_data = to_device(batch_data, self.device)
@@ -486,7 +486,7 @@ class IterRunner(BaseRunner):
                 if (self.global_step+1) % val_interval == 0:
                     avg_meter_val = DictAverageMeter()
                     self.model.eval()
-                    val_bar = tqdm(enumerate(self.val_loader), total=min(val_batches, len(self.val_loader)))
+                    val_bar = tqdm(enumerate(self.val_loader), total=min(val_batches, len(self.val_loader)), dynamic_ncols=True)
                     self.on_validation_epoch_start()
                     for batch_idx, batch_data in val_bar:
                         batch_data = to_device(batch_data, self.device)
@@ -632,7 +632,7 @@ class EpochRunner(BaseRunner):
         with torch.no_grad():
             self.model.eval()
             self.on_test_epoch_start()
-            for idx, data in tqdm(enumerate(test_loader)):
+            for idx, data in tqdm(enumerate(test_loader), dynamic_ncols=True):
                 data = to_device(data, self.device)
                 
                 self.on_test_batch_start(data, idx)
@@ -766,7 +766,7 @@ class EpochRunner(BaseRunner):
             if self.distributed:
                 self.train_loader.sampler.set_epoch(self.epoch)
             self.model.train()
-            bar = tqdm(enumerate(self.train_loader), total=len(self.train_loader))
+            bar = tqdm(enumerate(self.train_loader), total=len(self.train_loader), dynamic_ncols=True)
             self.on_train_epoch_start()
             for batch_idx, batch_data in bar:
                 batch_data = to_device(batch_data, self.device)
@@ -823,7 +823,7 @@ class EpochRunner(BaseRunner):
                 self.on_validation_epoch_start()
                 avg_meter = DictAverageMeter()
                 self.model.eval()
-                bar = tqdm(enumerate(self.val_loader), total=min(val_batches, len(self.val_loader)))
+                bar = tqdm(enumerate(self.val_loader), total=min(val_batches, len(self.val_loader)), dynamic_ncols=True)
                 for batch_idx, batch_data in bar:
                     self.on_validation_batch_start(batch_data, batch_idx)
 
