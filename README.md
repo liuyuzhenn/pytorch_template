@@ -19,7 +19,7 @@ Configurations are defined in yaml files, including:
 - optimizer parameters
 - lr_scheduler parameters
 
-See `./configs/demo.yml`.
+See `./configs/demo.yaml`.
 
 ### Project structure
 

@@ -41,7 +41,7 @@ def train(configs):
     train_configs = configs.train
     workspace = train_configs.workspace
     os.makedirs(workspace, exist_ok=True)
-    path = os.path.join(workspace, 'configs.yml')
+    path = os.path.join(workspace, 'configs.yaml')
     OmegaConf.save(configs, path)
 
     runner = build_instance(train_configs.__target__, configs)
