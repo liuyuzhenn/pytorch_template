@@ -32,6 +32,7 @@ def get_logger(logdir):
     logger.addHandler(handler)
     logger.addHandler(stream_handler)
     logger.setLevel(level=logging.INFO)
+    logger.propagate = False
     return logger
 
 
